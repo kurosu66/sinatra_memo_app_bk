@@ -1,0 +1,13 @@
+<h1>メモ一覧</h1>
+
+<div class="content">
+  <div class="button_change">
+  <button class="button_common" type="button" onclick=location.href="new">追加</button>
+  </div>
+
+  <ul>
+  <% @comments.each do |comment| %>
+    <li><a href="detail/<%= comment.id %>"><%= comment.title %></li>
+    <% end %>
+  </ul>
+</div>

@@ -1,0 +1,42 @@
+body{
+  width: 100%;
+  max-width: 1280px;
+  margin: auto;
+}
+
+.content {
+  max-width:800px;
+  margin: auto; 
+}
+
+h1 {
+  font-size: 2.5em;
+  text-align: center;
+  background-color: rgb(217, 217, 217);
+}
+
+p {
+  margin: 0%;
+}
+
+.button_common {
+  border-radius: 4px;
+  width: 7em;
+  height: 3em;
+}
+
+.button_change {
+  text-align: right;
+}
+
+.button_side_by_side {
+  display: flex;
+  justify-content: space-around;
+  margin: 20px;
+  padding: 0px 200px;
+}
+
+.form_title {
+  padding-bottom: 30px;
+  text-align: left;
+}
