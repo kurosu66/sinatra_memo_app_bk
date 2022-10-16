@@ -1,14 +1,12 @@
 <h1>メモ詳細</h1>
 
 <div class="content">
-  <h3>メモ<%= @memo_detail.id %></h3>
-
-  <p><%= @memo_detail.title %></p>
-  <p><%= @memo_detail.body %></p>
+  <p><%= sanitize @memo_title %></p>
+  <p><%= sanitize @memo_content %></p>
 
   <div class="button_side_by_side">
-    <button class="button_common" type="button" onclick=location.href="/edit/<%= @memo_detail.id %>">変更</button>
-    <form method="post" action="/detail/delete/<%= @memo_detail.id %>">
+    <button class="button_common" type="button" onclick=location.href="/memos/<%= @memo_id.to_json %>/edit">変更</button>
+    <form method="post" action="/memos/<%= @memo_id %>">
       <input class="button_common" type="submit" value="削除">
       <input type="hidden" name="_method" value="delete">
     </form>
