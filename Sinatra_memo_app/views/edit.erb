@@ -1,0 +1,16 @@
+<h1>メモ編集</h1>
+
+<div class="content">
+  <form method="post" action="/memos/<%= @memo_id %>/update">
+    <p><label>タイトル</label></p>
+    <input required type="text" name="title" autocomplete="none" value="<%= @memo_title %>">
+
+    <p><label>内容</label></p>
+    <textarea required name="content" row="40" cols="100"><%= @memo_content %></textarea>
+
+    <div class="button_side_by_side">
+      <input class="button_common" type="submit" value="変更">
+      <input type="hidden" name="_method" value="patch">
+    </div>
+  </form>
+</div>
