@@ -2,7 +2,6 @@
 
 require 'sinatra'
 require 'sinatra/reloader'
-require 'active_record'
 require 'json'
 
 helpers do
