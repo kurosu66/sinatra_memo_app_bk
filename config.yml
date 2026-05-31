@@ -1,0 +1,42 @@
+# ディズニー自動予約設定ファイル
+# ネットワークキャプチャ（Charlesなど）で取得したAPIエンドポイントと認証情報を設定してください
+
+disney:
+  # APIベースURL（例: 東京ディズニーリゾートアプリのAPI）
+  base_url: "https://api.tokyodisneyresort.jp"
+
+  # 認証情報（アプリのログインに使用）
+  email: "your_email@example.com"
+  password: "your_password"
+
+  # ログインエンドポイント（アプリのネットワークトラフィックから取得）
+  login_path: "/v1/auth/login"
+
+  # 予約状況確認エンドポイント
+  availability_path: "/v1/facility/attraction/standby"
+
+  # 予約リクエストエンドポイント
+  booking_path: "/v1/facility/attraction/book"
+
+  # 対象アトラクション設定
+  attraction:
+    # アトラクションID（アプリのAPIレスポンスから取得）
+    id: "attraction_id_here"
+    name: "対象アトラクション名"
+
+  # 予約パラメータ（アプリのリクエストから取得）
+  booking_params:
+    party_size: 2
+    # その他必要なパラメータを追記
+
+# ポーリング設定
+polling:
+  interval_seconds: 5     # 確認間隔（秒）
+  max_attempts: 720       # 最大試行回数（720回 = 1時間）
+  timeout_seconds: 10     # HTTPリクエストタイムアウト
+
+# 通知設定（オプション）
+notification:
+  enabled: false
+  # sound: true
+  # slack_webhook_url: "https://hooks.slack.com/..."
