@@ -1,2 +1,5 @@
 .bundle/
 vendor/bundle/
+__pycache__/
+mitmproxy-ca-cert.pem
+disney_captured.json
