@@ -241,6 +241,102 @@ main { flex: 1; }
 }
 .btn-back:hover { color: var(--text); border-color: var(--muted); }
 
+/* ── Input Tabs ── */
+.input-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.input-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.input-tab.active {
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+}
+.input-tab:hover:not(.active) { color: var(--text); }
+
+/* ── YouTube panel ── */
+.yt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 24px;
+}
+.yt-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.yt-icon {
+  position: absolute;
+  left: 14px;
+  flex-shrink: 0;
+}
+.yt-input {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px 14px 14px 44px;
+  font-size: 0.92rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: var(--font);
+}
+.yt-input:focus { border-color: rgba(255,0,0,0.5); }
+.yt-input::placeholder { color: var(--muted); }
+.yt-preview-wrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.yt-thumbnail {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: #111;
+}
+.yt-meta { flex: 1; }
+.yt-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; line-height: 1.4; }
+.yt-warning { font-size: 0.75rem; color: #f9a825; }
+.yt-analyze-btn {
+  width: 100%;
+  justify-content: center;
+}
+.yt-analyze-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* ── Features ── */
 .features-grid {
   display: grid;

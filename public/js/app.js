@@ -1,5 +1,80 @@
 // ── State ──
 let selectedFile = null;
+let currentTab   = 'file';
+
+// ── Tab Switching ──
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+  document.getElementById('tab-youtube').classList.toggle('active', tab === 'youtube');
+  document.getElementById('panel-file').classList.toggle('hidden', tab !== 'file');
+  document.getElementById('panel-youtube').classList.toggle('hidden', tab !== 'youtube');
+}
+
+// ── YouTube URL Input ──
+function onYtUrlInput(val) {
+  const btn = document.getElementById('yt-analyze-btn');
+  const previewWrap = document.getElementById('yt-preview-wrap');
+  const videoId = extractYouTubeId(val.trim());
+
+  if (videoId) {
+    document.getElementById('yt-thumbnail').src =
+      `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    document.getElementById('yt-title').textContent = val.trim();
+    previewWrap.classList.remove('hidden');
+    btn.disabled = false;
+  } else {
+    previewWrap.classList.add('hidden');
+    btn.disabled = true;
+  }
+}
+
+function extractYouTubeId(url) {
+  const m = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : null;
+}
+
+// ── YouTube Analysis ──
+async function startYouTubeAnalysis() {
+  const url = document.getElementById('yt-url-input').value.trim();
+  if (!url) return;
+
+  showView('progress-view');
+  setProgress(10);
+  setStep(1);
+  setSubtitle('YouTubeから動画をダウンロード中...');
+
+  try {
+    setProgress(30);
+    setStep(2);
+    setSubtitle('Claude AI が分析中... (動画の長さによっては数分かかります)');
+
+    const response = await fetch('/analyze-youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(360000)  // 6分タイムアウト
+    });
+
+    setProgress(85);
+    setStep(3);
+    setSubtitle('レポートを生成しています...');
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    setProgress(100);
+    await sleep(600);
+
+    renderResults(data);
+    showView('results-view');
+  } catch (err) {
+    renderError(err.message);
+    showView('results-view');
+  }
+}
 
 // ── View Management ──
 function showView(id) {
