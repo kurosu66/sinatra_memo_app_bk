@@ -67,10 +67,9 @@ def download_and_extract_frames(url, frame_count = 20)
   check_tool!('yt-dlp', 'pip install yt-dlp')
   check_tool!('ffmpeg',  'brew install ffmpeg')
 
-  stream_url, duration = get_stream_info(url)
-
   Dir.mktmpdir('soccer_') do |tmp|
-    extract_frames_from_stream(stream_url, duration, tmp, frame_count)
+    video_path = download_with_ytdlp(url, tmp)
+    extract_frames_from_file(video_path, tmp, frame_count, nil)
   end
 end
 
@@ -90,12 +89,15 @@ def find_cookies_file
   ].find { |f| File.exist?(f) }
 end
 
-def get_stream_info(youtube_url)
+def download_with_ytdlp(youtube_url, dir)
+  output_tmpl = File.join(dir, 'video.%(ext)s')
+
   args = [
     'yt-dlp',
     '-f', '18/best[height<=480]/best',
     '--no-playlist',
-    '--dump-json',
+    '--no-part',
+    '-o', output_tmpl,
   ]
 
   cookies_file = find_cookies_file
@@ -106,55 +108,21 @@ def get_stream_info(youtube_url)
     warn "[yt-dlp] cookies.txt 未検出"
   end
 
-  stdout, stderr, status = Open3.capture3(*args, youtube_url)
+  args << youtube_url
+
+  warn "[yt-dlp] ダウンロード開始..."
+  stdout, stderr, status = Open3.capture3(*args)
+
   unless status.success?
-    raise "動画情報の取得に失敗しました: #{stderr.lines.last&.strip}"
+    raise "動画のダウンロードに失敗しました: #{stderr.lines.last(3).join(' ').strip}"
   end
 
-  info = JSON.parse(stdout)
-  url = info['url'] || info.dig('requested_formats', 0, 'url')
-  raise 'ストリームURLが取得できませんでした' if url.nil? || url.empty?
+  downloaded = Dir[File.join(dir, 'video.*')].find { |f| File.size(f) > 1024 }
+  raise 'ダウンロードされたファイルが見つかりません' unless downloaded
 
-  duration = info['duration']&.to_f || 60.0
-  warn "[yt-dlp] 取得完了: #{info['title']} (#{duration.round}秒)"
-
-  [url, duration]
-end
-
-def extract_frames_from_stream(stream_url, duration, dir, count)
-  video_path = File.join(dir, 'video.mp4')
-
-  # システムcurl（macOS: Apple Secure Transport）でダウンロード
-  curl = File.exist?('/usr/bin/curl') ? '/usr/bin/curl' : 'curl'
-  warn "[curl] 動画をダウンロード中... (#{(duration / 60).round}分の動画)"
-
-  curl_args = [
-    curl, '-L', '-o', video_path,
-    '-A', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    '-e', 'https://www.youtube.com/',
-    '--write-out', '%{http_code}',
-    '--max-time', '600',
-  ]
-
-  # CDNアクセスにもcookiesが必要
-  cookies_file = find_cookies_file
-  if cookies_file
-    curl_args += ['-b', cookies_file]
-    warn "[curl] cookies.txt を使用"
-  end
-
-  curl_args << stream_url
-  stdout, stderr, status = Open3.capture3(*curl_args)
-  http_code = stdout.strip
-
-  unless File.exist?(video_path) && File.size(video_path) > 1024
-    raise "動画のダウンロードに失敗しました (HTTP #{http_code}): #{stderr.strip}"
-  end
-
-  mb = (File.size(video_path) / 1024.0 / 1024.0).round(1)
-  warn "[curl] #{mb}MB ダウンロード完了"
-
-  extract_frames_from_file(video_path, dir, count, duration)
+  mb = (File.size(downloaded) / 1024.0 / 1024.0).round(1)
+  warn "[yt-dlp] #{mb}MB ダウンロード完了: #{File.basename(downloaded)}"
+  downloaded
 end
 
 def extract_frames_from_file(video_path, dir, count, fallback_duration)
@@ -166,7 +134,7 @@ def extract_frames_from_file(video_path, dir, count, fallback_duration)
   rescue
     nil
   end
-  duration = [actual_duration || fallback_duration, 1.0].max
+  duration = [actual_duration || fallback_duration || 60.0, 1.0].max
 
   frames = []
   count.times do |i|
