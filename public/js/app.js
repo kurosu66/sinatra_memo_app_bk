@@ -281,15 +281,26 @@ function renderResults(data) {
   // Players
   html += '<div class="players-section">';
   html += '<h2 class="section-title">選手評価</h2>';
-  html += '<div class="players-grid">';
 
-  const sorted = [...players].sort((a, b) => b.rating - a.rating);
-  for (const player of sorted) {
-    const isMvp = String(player.jersey_number) === String(mvp_jersey_number) && player.team === mvp_team;
-    html += renderPlayerCard(player, isMvp);
-  }
+  const homePlayers = [...players].filter(p => p.team === 'home').sort((a, b) => b.rating - a.rating);
+  const awayPlayers = [...players].filter(p => p.team === 'away').sort((a, b) => b.rating - a.rating);
 
-  html += '</div></div>';
+  const renderTeamGroup = (teamPlayers, teamClass, teamName) => {
+    if (teamPlayers.length === 0) return '';
+    let g = `<div class="players-team-group">`;
+    g += `<div class="players-team-label ${teamClass}">${esc(teamName)}</div>`;
+    g += `<div class="players-grid">`;
+    for (const player of teamPlayers) {
+      const isMvp = String(player.jersey_number) === String(mvp_jersey_number) && player.team === mvp_team;
+      g += renderPlayerCard(player, isMvp);
+    }
+    g += `</div></div>`;
+    return g;
+  };
+
+  html += renderTeamGroup(homePlayers, 'home', match.home_team);
+  html += renderTeamGroup(awayPlayers, 'away', match.away_team);
+  html += '</div>';
 
   // Highlights
   if (match_highlights && match_highlights.length > 0) {

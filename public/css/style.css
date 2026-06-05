@@ -531,6 +531,27 @@ main { flex: 1; }
 
 /* ── Players Grid ── */
 .players-section { margin-bottom: 32px; }
+.players-team-group { margin-bottom: 28px; }
+.players-team-label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 14px;
+}
+.players-team-label.home {
+  background: rgba(41,121,255,0.12);
+  color: #82b1ff;
+  border: 1px solid rgba(41,121,255,0.3);
+}
+.players-team-label.away {
+  background: rgba(255,82,82,0.12);
+  color: #ff8a80;
+  border: 1px solid rgba(255,82,82,0.3);
+}
 .players-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
