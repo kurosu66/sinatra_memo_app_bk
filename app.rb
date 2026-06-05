@@ -122,8 +122,41 @@ def get_stream_info(youtube_url)
 end
 
 def extract_frames_from_stream(stream_url, duration, dir, count)
-  duration = [duration, 1.0].max
-  ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+  video_path = File.join(dir, 'video.mp4')
+
+  # システムcurl（macOS: Apple Secure Transport）でダウンロード
+  curl = File.exist?('/usr/bin/curl') ? '/usr/bin/curl' : 'curl'
+  warn "[curl] 動画をダウンロード中... (#{(duration / 60).round}分の動画)"
+
+  _, stderr, status = Open3.capture3(
+    curl, '-L', '-o', video_path,
+    '-A', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    '-e', 'https://www.youtube.com/',
+    '--silent', '--show-error',
+    '--max-time', '600',
+    stream_url
+  )
+
+  unless File.exist?(video_path) && File.size(video_path) > 1024
+    raise "動画のダウンロードに失敗しました: #{stderr.strip}"
+  end
+
+  mb = (File.size(video_path) / 1024.0 / 1024.0).round(1)
+  warn "[curl] #{mb}MB ダウンロード完了"
+
+  extract_frames_from_file(video_path, dir, count, duration)
+end
+
+def extract_frames_from_file(video_path, dir, count, fallback_duration)
+  probe_out, = Open3.capture2(
+    'ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', video_path
+  )
+  actual_duration = begin
+    JSON.parse(probe_out).dig('format', 'duration')&.to_f
+  rescue
+    nil
+  end
+  duration = [actual_duration || fallback_duration, 1.0].max
 
   frames = []
   count.times do |i|
@@ -131,21 +164,14 @@ def extract_frames_from_stream(stream_url, duration, dir, count)
     t = [t, 0].max
     frame_path = File.join(dir, format('frame_%03d.jpg', i))
 
-    out, status = Open3.capture2e(
-      'ffmpeg',
-      '-headers', "User-Agent: #{ua}\r\nReferer: https://www.youtube.com/\r\n",
-      '-ss', t.to_s,
-      '-i', stream_url,
+    Open3.capture2e(
+      'ffmpeg', '-ss', t.to_s, '-i', video_path,
       '-vframes', '1', '-q:v', '3',
       '-vf', 'scale=854:480:force_original_aspect_ratio=decrease',
       frame_path, '-y'
     )
 
-    unless File.exist?(frame_path) && File.size(frame_path) > 0
-      warn "[ffmpeg] フレーム #{i + 1} スキップ: #{out.lines.last&.strip}"
-      next
-    end
-
+    next unless File.exist?(frame_path) && File.size(frame_path) > 0
     frames << Base64.strict_encode64(File.binread(frame_path))
     warn "[ffmpeg] フレーム #{i + 1}/#{count} 取得 (t=#{t.round}s)"
   end
