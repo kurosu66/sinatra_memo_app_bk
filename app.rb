@@ -64,13 +64,13 @@ def valid_youtube_url?(url)
 end
 
 def download_and_extract_frames(url, frame_count = 20)
-  check_tool!('yt-dlp',  'pip install yt-dlp')
-  check_tool!('ffmpeg',  'https://ffmpeg.org/download.html')
-  check_tool!('ffprobe', 'https://ffmpeg.org/download.html')
+  check_tool!('yt-dlp', 'pip install yt-dlp')
+  check_tool!('ffmpeg',  'brew install ffmpeg')
+
+  stream_url = get_stream_url(url)
 
   Dir.mktmpdir('soccer_') do |tmp|
-    video_path = download_video(url, tmp)
-    extract_frames_ffmpeg(video_path, tmp, frame_count)
+    extract_frames_from_stream(stream_url, tmp, frame_count)
   end
 end
 
@@ -79,84 +79,78 @@ def check_tool!(name, install_hint)
   raise "#{name} が見つかりません。#{install_hint} でインストールしてください。" unless status.success?
 end
 
-def download_video(url, dir)
-  out_template = File.join(dir, 'video.%(ext)s')
-  base_args = [
-    'yt-dlp',
-    '-f', 'bestvideo[height<=480]+bestaudio/best[height<=480]/best',
-    '--extractor-args', 'youtube:player_client=tv_embedded,web',
-    '--match-filter', 'duration < 7200',
-    '--no-playlist',
-    '--retries', '3',
-    '--merge-output-format', 'mp4',
-    '-o', out_template,
-  ]
-
-  # cookies.txt を探す（環境変数 > 複数の候補パス の順）
-  cookies_file = if ENV['YTDLP_COOKIES'] && File.exist?(ENV['YTDLP_COOKIES'])
-    ENV['YTDLP_COOKIES']
-  else
-    [
-      File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
-      File.join(Dir.pwd, 'cookies.txt'),
-      File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
-    ].find { |f| File.exist?(f) }
+def find_cookies_file
+  if ENV['YTDLP_COOKIES'] && File.exist?(ENV['YTDLP_COOKIES'])
+    return ENV['YTDLP_COOKIES']
   end
-
-  if cookies_file
-    warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
-    base_args += ['--cookies', cookies_file]
-  else
-    warn "[yt-dlp] cookies.txt 未検出。YTDLP_COOKIES=/path/to/cookies.txt を .env に設定してください"
-  end
-
-  _, stderr, status = Open3.capture3(*base_args, url)
-
-  unless status.success?
-    checked_paths = [
-      File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
-      File.join(Dir.pwd, 'cookies.txt'),
-      File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
-    ]
-    debug_info = "【デバッグ】cookies使用: #{cookies_file || 'なし'} / 確認したパス: #{checked_paths.join(', ')}"
-
-    if stderr.include?('403') || stderr.include?('Sign in')
-      raise "動画のダウンロードに失敗しました（YouTubeのアクセス制限）\n#{debug_info}"
-    end
-    raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}"
-  end
-
-  video = Dir[File.join(dir, 'video.*')].reject { |f| f.end_with?('.part') }.first
-  raise '動画ファイルが見つかりません' unless video
-  video
+  [
+    File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
+    File.join(Dir.pwd, 'cookies.txt'),
+    File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
+  ].find { |f| File.exist?(f) }
 end
 
-def extract_frames_ffmpeg(video_path, dir, count)
-  # 動画の長さを取得
+def get_stream_url(youtube_url)
+  args = [
+    'yt-dlp',
+    '-f', '18/best[height<=480]/best',
+    '--get-url',
+    '--no-playlist',
+  ]
+
+  cookies_file = find_cookies_file
+  if cookies_file
+    warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
+    args += ['--cookies', cookies_file]
+  else
+    warn "[yt-dlp] cookies.txt 未検出"
+  end
+
+  stdout, stderr, status = Open3.capture3(*args, youtube_url)
+
+  unless status.success?
+    raise "ストリームURLの取得に失敗しました: #{stderr.lines.last&.strip}"
+  end
+
+  stream_url = stdout.strip.lines.first&.strip
+  raise 'ストリームURLが取得できませんでした' if stream_url.nil? || stream_url.empty?
+
+  warn "[ffmpeg] ストリームURLを取得しました"
+  stream_url
+end
+
+def extract_frames_from_stream(stream_url, dir, count)
+  # まず動画の長さを取得（最大30秒待つ）
   probe_out, = Open3.capture2(
-    'ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', video_path
+    'ffprobe', '-v', 'quiet', '-print_format', 'json',
+    '-show_format', '-timeout', '30000000', stream_url
   )
   duration = JSON.parse(probe_out).dig('format', 'duration')&.to_f || 60.0
   duration = [duration, 0.1].max
+  warn "[ffmpeg] 動画時間: #{duration.round}秒"
 
   frames = []
   count.times do |i|
-    t = (i.to_f / [count - 1, 1].max) * (duration - 0.5)
+    t = (i.to_f / [count - 1, 1].max) * (duration - 1.0)
     t = [t, 0].max
     frame_path = File.join(dir, format('frame_%03d.jpg', i))
 
-    Open3.capture2e(
-      'ffmpeg', '-ss', t.to_s, '-i', video_path,
+    _, _, status = Open3.capture2e(
+      'ffmpeg', '-ss', t.to_s,
+      '-i', stream_url,
       '-vframes', '1', '-q:v', '3',
       '-vf', 'scale=854:480:force_original_aspect_ratio=decrease',
+      '-timeout', '15000000',
       frame_path, '-y'
     )
 
     next unless File.exist?(frame_path) && File.size(frame_path) > 0
     frames << Base64.strict_encode64(File.binread(frame_path))
+    warn "[ffmpeg] フレーム #{i + 1}/#{count} 取得"
   end
 
   raise 'フレームの抽出に失敗しました' if frames.empty?
+  warn "[ffmpeg] #{frames.size}フレーム取得完了"
   frames
 end
 
