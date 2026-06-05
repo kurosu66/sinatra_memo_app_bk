@@ -26,13 +26,15 @@ end
 # クライアントでフレーム抽出済み（ファイルアップロード）
 post '/analyze' do
   content_type :json
+  data = begin
+    JSON.parse(request.body.read)
+  rescue JSON::ParserError
+    halt 400, { error: 'リクエストの解析に失敗しました' }.to_json
+  end
   begin
-    data = JSON.parse(request.body.read)
     frames = Array(data['frames'])
     halt 400, { error: 'フレームデータが見つかりません' }.to_json if frames.empty?
     analyze_frames(frames.first(20)).to_json
-  rescue JSON::ParserError
-    halt 400, { error: 'リクエストの解析に失敗しました' }.to_json
   rescue => e
     status 500
     { error: e.message }.to_json
@@ -42,15 +44,16 @@ end
 # YouTubeリンクからサーバー側でダウンロード＆フレーム抽出
 post '/analyze-youtube' do
   content_type :json
-  begin
-    data = JSON.parse(request.body.read)
-    url  = data['url'].to_s.strip
-    halt 400, { error: '有効なYouTube URLを入力してください' }.to_json unless valid_youtube_url?(url)
-
-    frames = download_and_extract_frames(url)
-    analyze_frames(frames).to_json
+  data = begin
+    JSON.parse(request.body.read)
   rescue JSON::ParserError
     halt 400, { error: 'リクエストの解析に失敗しました' }.to_json
+  end
+  begin
+    url = data['url'].to_s.strip
+    halt 400, { error: '有効なYouTube URLを入力してください' }.to_json unless valid_youtube_url?(url)
+    frames = download_and_extract_frames(url)
+    analyze_frames(frames).to_json
   rescue => e
     status 500
     { error: e.message }.to_json
@@ -196,14 +199,21 @@ def analyze_frames(frames_data)
     http.request(req)
   end
 
-  parsed = JSON.parse(response.body)
+  parsed = begin
+    JSON.parse(response.body)
+  rescue JSON::ParserError
+    raise "APIレスポンスのパースに失敗しました (HTTP #{response.code}): #{response.body[0, 200]}"
+  end
   raise "API エラー: #{parsed.dig('error', 'message')}" if parsed['error']
 
   text = parsed.dig('content', 0, 'text') || ''
-  if (m = text.match(/```json\s*(.*?)\s*```/m) || text.match(/(\{[\s\S]*\})/m))
+  warn "[claude] レスポンス先頭200文字: #{text[0, 200]}"
+  m = text.match(/```json\s*(.*?)\s*```/m) || text.match(/(\{[\s\S]*\})/m)
+  raise 'AIの応答からJSONを抽出できませんでした' unless m
+  begin
     JSON.parse(m[1])
-  else
-    raise 'AIの応答からJSONを抽出できませんでした'
+  rescue JSON::ParserError => e
+    raise "AIレスポンスのJSON解析に失敗しました: #{e.message}\n---\n#{m[1][0, 300]}"
   end
 end
 
