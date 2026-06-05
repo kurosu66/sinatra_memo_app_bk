@@ -34,7 +34,7 @@ post '/analyze' do
   begin
     frames = Array(data['frames'])
     halt 400, { error: 'フレームデータが見つかりません' }.to_json if frames.empty?
-    analyze_frames(frames.first(20)).to_json
+    analyze_frames(frames.first(60)).to_json
   rescue => e
     status 500
     { error: e.message }.to_json
@@ -66,7 +66,7 @@ def valid_youtube_url?(url)
   url =~ /\A https?:\/\/(www\.)?(youtube\.com\/watch|youtu\.be\/|youtube\.com\/shorts\/)/x
 end
 
-def download_and_extract_frames(url, frame_count = 20)
+def download_and_extract_frames(url, frame_count = 60)
   check_tool!('yt-dlp', 'pip install yt-dlp')
   check_tool!('ffmpeg',  'brew install ffmpeg')
 
@@ -186,7 +186,7 @@ def analyze_frames(frames_data)
   end
 
   uri = URI('https://api.anthropic.com/v1/messages')
-  response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 180) do |http|
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 360) do |http|
     req = Net::HTTP::Post.new(uri)
     req['Content-Type']      = 'application/json'
     req['x-api-key']         = api_key

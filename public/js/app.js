@@ -120,7 +120,7 @@ function handleVideoSelect(file) {
   document.getElementById('file-size').textContent = formatBytes(file.size);
 
   videoEl.addEventListener('loadedmetadata', () => {
-    const frameCount = Math.min(20, Math.max(8, Math.floor(videoEl.duration / 15)));
+    const frameCount = Math.min(60, Math.max(8, Math.floor(videoEl.duration / 15)));
     document.getElementById('frame-count-label').textContent =
       `動画時間: ${formatDuration(videoEl.duration)} / ${frameCount} フレームを分析`;
   }, { once: true });
@@ -201,7 +201,7 @@ async function startAnalysis() {
   try {
     const videoEl = document.getElementById('video-preview');
     const duration = videoEl.duration || 0;
-    const frameCount = Math.min(20, Math.max(8, Math.floor(duration / 15)));
+    const frameCount = Math.min(60, Math.max(8, Math.floor(duration / 15)));
 
     const frames = await extractFrames(videoEl, frameCount);
 
