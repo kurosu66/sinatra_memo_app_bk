@@ -90,10 +90,18 @@ def download_video(url, dir)
     '-o', out_template,
   ]
 
-  # cookies.txt があれば優先して使う
-  cookies_file = File.expand_path('cookies.txt', __dir__)
-  if File.exist?(cookies_file)
+  # cookies.txt を複数の場所から探す
+  cookies_file = [
+    File.expand_path('cookies.txt', __dir__),
+    File.expand_path('cookies.txt', Dir.pwd),
+    File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
+  ].find { |f| File.exist?(f) }
+
+  if cookies_file
+    warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
     base_args += ['--cookies', cookies_file]
+  else
+    warn "[yt-dlp] cookies.txt が見つかりません（パス: #{File.expand_path('cookies.txt', __dir__)}）"
   end
 
   _, stderr, status = Open3.capture3(*base_args, url)
