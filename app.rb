@@ -92,37 +92,44 @@ end
 def download_with_ytdlp(youtube_url, dir)
   output_tmpl = File.join(dir, 'video.%(ext)s')
 
-  args = [
-    'yt-dlp',
-    '-f', '18/best[height<=480]/best',
-    '--no-playlist',
-    '--no-part',
-    '-o', output_tmpl,
-  ]
-
   cookies_file = find_cookies_file
   if cookies_file
     warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
-    args += ['--cookies', cookies_file]
   else
     warn "[yt-dlp] cookies.txt 未検出"
   end
 
-  args << youtube_url
+  base_args = ['yt-dlp', '--no-playlist', '--no-part', '-o', output_tmpl]
+  base_args += ['--cookies', cookies_file] if cookies_file
 
-  warn "[yt-dlp] ダウンロード開始..."
-  stdout, stderr, status = Open3.capture3(*args)
+  # SABRを回避するためクライアントを順番に試す
+  candidates = [
+    { client: 'mweb',         fmt: '18/best[height<=480]/best' },
+    { client: 'tv_embedded',  fmt: '18/best[height<=480]/best' },
+    { client: 'ios',          fmt: '18/best[height<=480]/best' },
+    { client: 'web_embedded', fmt: 'best[height<=480]/best'    },
+  ]
 
-  unless status.success?
-    raise "動画のダウンロードに失敗しました: #{stderr.lines.last(3).join(' ').strip}"
+  last_error = nil
+  candidates.each do |c|
+    warn "[yt-dlp] client=#{c[:client]} でダウンロード試行..."
+    args = base_args + [
+      '-f', c[:fmt],
+      '--extractor-args', "youtube:player_client=#{c[:client]}",
+      youtube_url,
+    ]
+    _stdout, stderr, status = Open3.capture3(*args)
+    downloaded = Dir[File.join(dir, 'video.*')].find { |f| File.size?(f).to_i > 1024 }
+    if downloaded
+      mb = (File.size(downloaded) / 1024.0 / 1024.0).round(1)
+      warn "[yt-dlp] #{mb}MB ダウンロード完了 (client=#{c[:client]})"
+      return downloaded
+    end
+    last_error = stderr.lines.grep(/ERROR/).last&.strip || stderr.lines.last&.strip
+    warn "[yt-dlp] client=#{c[:client]} 失敗: #{last_error}"
   end
 
-  downloaded = Dir[File.join(dir, 'video.*')].find { |f| File.size(f) > 1024 }
-  raise 'ダウンロードされたファイルが見つかりません' unless downloaded
-
-  mb = (File.size(downloaded) / 1024.0 / 1024.0).round(1)
-  warn "[yt-dlp] #{mb}MB ダウンロード完了: #{File.basename(downloaded)}"
-  downloaded
+  raise "動画のダウンロードに失敗しました: #{last_error}"
 end
 
 def extract_frames_from_file(video_path, dir, count, fallback_duration)
