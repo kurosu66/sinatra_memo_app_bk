@@ -90,18 +90,22 @@ def download_video(url, dir)
     '-o', out_template,
   ]
 
-  # cookies.txt を複数の場所から探す
-  cookies_file = [
-    File.expand_path('cookies.txt', __dir__),
-    File.expand_path('cookies.txt', Dir.pwd),
-    File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
-  ].find { |f| File.exist?(f) }
+  # cookies.txt を探す（環境変数 > 複数の候補パス の順）
+  cookies_file = if ENV['YTDLP_COOKIES'] && File.exist?(ENV['YTDLP_COOKIES'])
+    ENV['YTDLP_COOKIES']
+  else
+    [
+      File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
+      File.join(Dir.pwd, 'cookies.txt'),
+      File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
+    ].find { |f| File.exist?(f) }
+  end
 
   if cookies_file
     warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
     base_args += ['--cookies', cookies_file]
   else
-    warn "[yt-dlp] cookies.txt が見つかりません（パス: #{File.expand_path('cookies.txt', __dir__)}）"
+    warn "[yt-dlp] cookies.txt 未検出。YTDLP_COOKIES=/path/to/cookies.txt を .env に設定してください"
   end
 
   _, stderr, status = Open3.capture3(*base_args, url)
