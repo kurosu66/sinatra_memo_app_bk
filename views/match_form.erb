@@ -1,0 +1,92 @@
+<div class="form-view">
+  <div class="form-header">
+    <a href="<%= @mode == 'edit' ? "/matches/#{@match['id']}" : '/' %>" class="btn-back">← 戻る</a>
+    <h1 class="page-title"><%= @mode == 'edit' ? '試合を編集' : '試合を記録' %></h1>
+  </div>
+
+  <form action="<%= @mode == 'edit' ? "/matches/#{@match['id']}" : '/matches' %>"
+        method="post" id="match-form">
+    <% if @mode == 'edit' %>
+      <input type="hidden" name="_method" value="put">
+    <% end %>
+    <input type="hidden" name="players_json" id="players-json" value="<%= (@match['players'] || []).to_json %>">
+
+    <!-- 試合情報 -->
+    <div class="form-card">
+      <h2 class="form-section-title">試合情報</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">日付</label>
+          <input type="date" name="date" class="form-input"
+                 value="<%= @match['date'] || Date.today.to_s %>">
+        </div>
+        <div class="form-group">
+          <label class="form-label">場所</label>
+          <input type="text" name="location" class="form-input" placeholder="例: ○○グラウンド"
+                 value="<%= @match['location'] || '' %>">
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-3">
+        <div class="form-group">
+          <label class="form-label">ホームチーム</label>
+          <input type="text" name="home_team" class="form-input" placeholder="チーム名"
+                 value="<%= @match['home_team'] || '' %>">
+        </div>
+        <div class="form-group score-group">
+          <label class="form-label">スコア</label>
+          <div class="score-inputs">
+            <input type="number" name="home_score" class="form-input score-input" min="0" value="<%= @match['home_score'] || 0 %>">
+            <span class="score-div">-</span>
+            <input type="number" name="away_score" class="form-input score-input" min="0" value="<%= @match['away_score'] || 0 %>">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">アウェイチーム</label>
+          <input type="text" name="away_team" class="form-input" placeholder="チーム名"
+                 value="<%= @match['away_team'] || '' %>">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">メモ</label>
+        <textarea name="note" class="form-input form-textarea" placeholder="試合のメモや総評"><%= @match['note'] || '' %></textarea>
+      </div>
+    </div>
+
+    <!-- 選手 -->
+    <div class="form-card">
+      <div class="players-form-header">
+        <h2 class="form-section-title">選手</h2>
+        <div class="add-player-btns">
+          <button type="button" class="btn-add-player home" onclick="addPlayer('home')">
+            + ホーム選手を追加
+          </button>
+          <button type="button" class="btn-add-player away" onclick="addPlayer('away')">
+            + アウェイ選手を追加
+          </button>
+        </div>
+      </div>
+
+      <div id="players-container">
+        <!-- JS で動的に追加 -->
+      </div>
+
+      <div id="players-empty" class="players-empty">
+        選手を追加してください
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="<%= @mode == 'edit' ? "/matches/#{@match['id']}" : '/' %>" class="btn-secondary">キャンセル</a>
+      <button type="submit" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <%= @mode == 'edit' ? '保存する' : '記録する' %>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const INITIAL_PLAYERS = <%= (@match['players'] || []).to_json %>;
+</script>

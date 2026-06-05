@@ -1,0 +1,92 @@
+<div class="detail-view">
+  <!-- ヘッダー -->
+  <div class="detail-header">
+    <a href="/" class="btn-back">← 一覧に戻る</a>
+    <div class="detail-actions">
+      <a href="/matches/<%= @match['id'] %>/edit" class="btn-secondary">編集</a>
+      <form action="/matches/<%= @match['id'] %>" method="post" style="display:inline"
+            onsubmit="return confirm('この試合記録を削除しますか？')">
+        <input type="hidden" name="_method" value="delete">
+        <button type="submit" class="btn-danger">削除</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 試合概要 -->
+  <div class="match-overview">
+    <div class="overview-meta">
+      <% if @match['date'] && !@match['date'].empty? %>
+        <span class="overview-date">📅 <%= @match['date'] %></span>
+      <% end %>
+      <% if @match['location'] && !@match['location'].empty? %>
+        <span class="overview-location">📍 <%= @match['location'] %></span>
+      <% end %>
+    </div>
+    <div class="overview-score-row">
+      <div class="team-block home">
+        <div class="team-name-lg home-name"><%= @match['home_team'] || 'ホーム' %></div>
+      </div>
+      <div class="score-block">
+        <div class="score-display">
+          <span class="score-h"><%= @match['home_score'] %></span>
+          <span class="score-dash"> - </span>
+          <span class="score-a"><%= @match['away_score'] %></span>
+        </div>
+      </div>
+      <div class="team-block away">
+        <div class="team-name-lg away-name"><%= @match['away_team'] || 'アウェイ' %></div>
+      </div>
+    </div>
+    <% if @match['note'] && !@match['note'].empty? %>
+      <div class="overview-note"><%= @match['note'] %></div>
+    <% end %>
+  </div>
+
+  <!-- 選手評価 -->
+  <% players = @match['players'] || [] %>
+  <% home_players = players.select { |p| p['team'] == 'home' }.sort_by { |p| -(p['rating'] || 0) } %>
+  <% away_players = players.select { |p| p['team'] == 'away' }.sort_by { |p| -(p['rating'] || 0) } %>
+
+  <% if players.empty? %>
+    <div class="empty-state" style="margin-top:32px">
+      <p class="empty-title">選手が記録されていません</p>
+      <a href="/matches/<%= @match['id'] %>/edit" class="btn-secondary" style="margin-top:12px">選手を追加する</a>
+    </div>
+  <% else %>
+    <div class="players-section">
+      <h2 class="section-title">選手評価</h2>
+
+      <% [[home_players, @match['home_team'], 'home'], [away_players, @match['away_team'], 'away']].each do |group, team_name, team_class| %>
+        <% next if group.empty? %>
+        <div class="players-team-group">
+          <div class="players-team-label <%= team_class %>"><%= team_name || (team_class == 'home' ? 'ホーム' : 'アウェイ') %></div>
+          <div class="players-grid">
+            <% group.each do |player| %>
+              <div class="player-card">
+                <div class="player-card-header">
+                  <div class="player-left">
+                    <div class="jersey <%= team_class %>"><%= player['jersey_number'] || '?' %></div>
+                    <div class="player-info">
+                      <span class="player-pos pos-<%= team_class %>"><%= player['position'] || '-' %></span>
+                      <span class="player-name"><%= player['name'] || 'Unknown' %></span>
+                    </div>
+                  </div>
+                  <% rating = player['rating']&.to_f || 0 %>
+                  <div class="rating-block">
+                    <div class="rating-number" style="color:<%= rating_color(rating) %>"><%= rating > 0 ? sprintf('%.1f', rating) : '-' %></div>
+                    <div class="rating-label"><%= rating_label(rating) %></div>
+                  </div>
+                </div>
+                <% if player['note'] && !player['note'].empty? %>
+                  <div class="player-highlight">
+                    <div class="play-summary"><%= player['note'] %></div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

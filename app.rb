@@ -1,10 +1,6 @@
 require 'sinatra'
 require 'json'
-require 'net/http'
-require 'uri'
-require 'open3'
-require 'tmpdir'
-require 'base64'
+require 'securerandom'
 require 'fileutils'
 
 begin
@@ -15,341 +11,119 @@ end
 set :public_folder, File.dirname(__FILE__) + '/public'
 set :views, File.dirname(__FILE__) + '/views'
 set :bind, '0.0.0.0'
-set :server_settings, timeout: 360
+set :method_override, true
 
-# ── ルーティング ──────────────────────────────────────
+DATA_FILE = File.join(File.dirname(__FILE__), 'data', 'matches.json')
+
+def rating_color(r)
+  return '#888' if r <= 0
+  return '#ffd600' if r >= 9.0
+  return '#00e676' if r >= 8.0
+  return '#69f0ae' if r >= 7.0
+  return '#ffeb3b' if r >= 6.0
+  return '#ffa726' if r >= 5.0
+  '#ff5252'
+end
+
+def rating_label(r)
+  return '-'    if r <= 0
+  return '卓越' if r >= 9.0
+  return '優秀' if r >= 8.0
+  return '良好' if r >= 7.0
+  return '平均' if r >= 6.0
+  return '平均以下' if r >= 5.0
+  '不振'
+end
+
+def load_matches
+  return [] unless File.exist?(DATA_FILE)
+  JSON.parse(File.read(DATA_FILE))
+rescue
+  []
+end
+
+def save_matches(matches)
+  FileUtils.mkdir_p(File.dirname(DATA_FILE))
+  File.write(DATA_FILE, JSON.pretty_generate(matches))
+end
+
+# ── 一覧 ──────────────────────────────────────────────
 
 get '/' do
+  @matches = load_matches.sort_by { |m| m['date'] || '' }.reverse
   erb :index
 end
 
-# クライアントでフレーム抽出済み（ファイルアップロード）
-post '/analyze' do
-  content_type :json
-  data = begin
-    JSON.parse(request.body.read)
-  rescue JSON::ParserError
-    halt 400, { error: 'リクエストの解析に失敗しました' }.to_json
-  end
-  begin
-    frames = Array(data['frames'])
-    halt 400, { error: 'フレームデータが見つかりません' }.to_json if frames.empty?
-    analyze_frames(frames.first(60)).to_json
-  rescue => e
-    status 500
-    { error: e.message }.to_json
-  end
+# ── 新規作成 ──────────────────────────────────────────
+
+get '/matches/new' do
+  @match = { 'players' => [] }
+  @mode  = 'new'
+  erb :match_form
 end
 
-# YouTubeリンクからサーバー側でダウンロード＆フレーム抽出
-post '/analyze-youtube' do
-  content_type :json
-  data = begin
-    JSON.parse(request.body.read)
-  rescue JSON::ParserError
-    halt 400, { error: 'リクエストの解析に失敗しました' }.to_json
-  end
-  begin
-    url = data['url'].to_s.strip
-    halt 400, { error: '有効なYouTube URLを入力してください' }.to_json unless valid_youtube_url?(url)
-    frames = download_and_extract_frames(url)
-    analyze_frames(frames).to_json
-  rescue => e
-    status 500
-    { error: e.message }.to_json
-  end
+post '/matches' do
+  players = JSON.parse(params[:players_json] || '[]') rescue []
+  match = {
+    'id'         => SecureRandom.uuid,
+    'date'       => params[:date].to_s.strip,
+    'location'   => params[:location].to_s.strip,
+    'home_team'  => params[:home_team].to_s.strip,
+    'away_team'  => params[:away_team].to_s.strip,
+    'home_score' => params[:home_score].to_i,
+    'away_score' => params[:away_score].to_i,
+    'note'       => params[:note].to_s.strip,
+    'players'    => players,
+    'created_at' => Time.now.iso8601
+  }
+  matches = load_matches
+  matches << match
+  save_matches(matches)
+  redirect "/matches/#{match['id']}"
 end
 
-# ── YouTube処理 ──────────────────────────────────────
+# ── 詳細 ──────────────────────────────────────────────
 
-def valid_youtube_url?(url)
-  url =~ /\A https?:\/\/(www\.)?(youtube\.com\/watch|youtu\.be\/|youtube\.com\/shorts\/)/x
+get '/matches/:id' do
+  @match = load_matches.find { |m| m['id'] == params[:id] }
+  halt 404, '試合が見つかりません' unless @match
+  erb :match_detail
 end
 
-def download_and_extract_frames(url, frame_count = 60)
-  check_tool!('yt-dlp', 'pip install yt-dlp')
-  check_tool!('ffmpeg',  'brew install ffmpeg')
+# ── 編集 ──────────────────────────────────────────────
 
-  Dir.mktmpdir('soccer_') do |tmp|
-    video_path = download_with_ytdlp(url, tmp)
-    extract_frames_from_file(video_path, tmp, frame_count, nil)
-  end
+get '/matches/:id/edit' do
+  @match = load_matches.find { |m| m['id'] == params[:id] }
+  halt 404, '試合が見つかりません' unless @match
+  @mode = 'edit'
+  erb :match_form
 end
 
-def check_tool!(name, install_hint)
-  _, status = Open3.capture2e('which', name)
-  raise "#{name} が見つかりません。#{install_hint} でインストールしてください。" unless status.success?
-end
-
-def find_cookies_file
-  if ENV['YTDLP_COOKIES'] && File.exist?(ENV['YTDLP_COOKIES'])
-    return ENV['YTDLP_COOKIES']
-  end
-  [
-    File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
-    File.join(Dir.pwd, 'cookies.txt'),
-    File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
-  ].find { |f| File.exist?(f) }
-end
-
-def download_with_ytdlp(youtube_url, dir)
-  output_tmpl = File.join(dir, 'video.%(ext)s')
-
-  cookies_file = find_cookies_file
-  if cookies_file
-    warn "[yt-dlp] cookies.txt を使用: #{cookies_file}"
-  else
-    warn "[yt-dlp] cookies.txt 未検出"
-  end
-
-  base_args = ['yt-dlp', '--no-playlist', '--no-part', '-o', output_tmpl]
-  base_args += ['--cookies', cookies_file] if cookies_file
-
-  fmt = 'best[height<=480][ext=mp4]/best[height<=480]/best'
-
-  # SABRを回避するためクライアントを順番に試す（formatは動的に選択させる）
-  candidates = [
-    ['tv'],
-    ['android'],
-    ['tv_embedded'],
-    ['mweb'],
-    [],  # クライアント指定なし（yt-dlpデフォルト）
-  ]
-
-  last_error = nil
-  candidates.each do |clients|
-    label = clients.empty? ? 'default' : clients.join(',')
-    warn "[yt-dlp] client=#{label} でダウンロード試行..."
-    args = base_args.dup
-    args += ['-f', fmt]
-    args += ['--extractor-args', "youtube:player_client=#{clients.join(',')}"] unless clients.empty?
-    args << youtube_url
-
-    _stdout, stderr, status = Open3.capture3(*args)
-    downloaded = Dir[File.join(dir, 'video.*')].find { |f| File.size?(f).to_i > 1024 }
-    if downloaded
-      mb = (File.size(downloaded) / 1024.0 / 1024.0).round(1)
-      warn "[yt-dlp] #{mb}MB ダウンロード完了 (client=#{label})"
-      return downloaded
-    end
-    last_error = stderr.lines.grep(/ERROR/).last&.strip || stderr.lines.last&.strip
-    warn "[yt-dlp] client=#{label} 失敗: #{last_error}"
-  end
-
-  raise "動画のダウンロードに失敗しました: #{last_error}"
-end
-
-def extract_frames_from_file(video_path, dir, count, fallback_duration)
-  probe_out, = Open3.capture2(
-    'ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', video_path
+put '/matches/:id' do
+  matches = load_matches
+  idx = matches.index { |m| m['id'] == params[:id] }
+  halt 404, '試合が見つかりません' unless idx
+  players = JSON.parse(params[:players_json] || '[]') rescue []
+  matches[idx].merge!(
+    'date'       => params[:date].to_s.strip,
+    'location'   => params[:location].to_s.strip,
+    'home_team'  => params[:home_team].to_s.strip,
+    'away_team'  => params[:away_team].to_s.strip,
+    'home_score' => params[:home_score].to_i,
+    'away_score' => params[:away_score].to_i,
+    'note'       => params[:note].to_s.strip,
+    'players'    => players,
+    'updated_at' => Time.now.iso8601
   )
-  actual_duration = begin
-    JSON.parse(probe_out).dig('format', 'duration')&.to_f
-  rescue
-    nil
-  end
-  duration = [actual_duration || fallback_duration || 60.0, 1.0].max
-
-  frames = []
-  count.times do |i|
-    t = (i.to_f / [count - 1, 1].max) * (duration - 1.0)
-    t = [t, 0].max
-    frame_path = File.join(dir, format('frame_%03d.jpg', i))
-
-    Open3.capture2e(
-      'ffmpeg', '-ss', t.to_s, '-i', video_path,
-      '-vframes', '1', '-q:v', '3',
-      '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease',
-      frame_path, '-y'
-    )
-
-    next unless File.exist?(frame_path) && File.size(frame_path) > 0
-    frames << Base64.strict_encode64(File.binread(frame_path))
-    warn "[ffmpeg] フレーム #{i + 1}/#{count} 取得 (t=#{t.round}s)"
-  end
-
-  raise 'フレームの抽出に失敗しました' if frames.empty?
-  warn "[ffmpeg] #{frames.size}フレーム取得完了"
-  frames
+  save_matches(matches)
+  redirect "/matches/#{params[:id]}"
 end
 
-# ── Claude API ──────────────────────────────────────
+# ── 削除 ──────────────────────────────────────────────
 
-def analyze_frames(frames_data)
-  api_key = ENV['ANTHROPIC_API_KEY']
-  raise 'ANTHROPIC_API_KEY が設定されていません。.env ファイルを確認してください。' unless api_key
-
-  images = frames_data.map do |frame|
-    base64 = frame.include?(',') ? frame.split(',', 2)[1] : frame
-    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } }
-  end
-
-  # Pass 1: 選手識別
-  warn "[claude] Pass 1: 選手識別中 (#{frames_data.size}フレーム)..."
-  roster = call_claude(
-    [{ type: 'text', text: identification_prompt(frames_data.length) }] + images,
-    api_key, max_tokens: 2048
-  )
-  warn "[claude] Pass 1完了: #{roster['players']&.size || 0}名識別"
-
-  # Pass 2: プレー評価（Pass 1の選手リストを活用）
-  warn "[claude] Pass 2: プレー評価中..."
-  result = call_claude(
-    [{ type: 'text', text: analysis_prompt(frames_data.length, roster) }] + images,
-    api_key, max_tokens: 8192
-  )
-  warn "[claude] Pass 2完了"
-  result
-end
-
-def call_claude(content, api_key, max_tokens: 4096)
-  uri = URI('https://api.anthropic.com/v1/messages')
-  response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 360) do |http|
-    req = Net::HTTP::Post.new(uri)
-    req['Content-Type']      = 'application/json'
-    req['x-api-key']         = api_key
-    req['anthropic-version'] = '2023-06-01'
-    req.body = {
-      model: 'claude-sonnet-4-6',
-      max_tokens: max_tokens,
-      messages: [{ role: 'user', content: content }]
-    }.to_json
-    http.request(req)
-  end
-
-  parsed = begin
-    JSON.parse(response.body)
-  rescue JSON::ParserError
-    raise "APIレスポンスのパースに失敗しました (HTTP #{response.code}): #{response.body[0, 200]}"
-  end
-  raise "API エラー: #{parsed.dig('error', 'message')}" if parsed['error']
-
-  text = parsed.dig('content', 0, 'text') || ''
-  warn "[claude] レスポンス先頭200文字: #{text[0, 200]}"
-  m = text.match(/```json\s*(.*?)\s*```/m) || text.match(/(\{[\s\S]*\})/m)
-  raise 'AIの応答からJSONを抽出できませんでした' unless m
-  begin
-    JSON.parse(m[1])
-  rescue JSON::ParserError => e
-    raise "AIレスポンスのJSON解析に失敗しました: #{e.message}\n---\n#{m[1][0, 300]}"
-  end
-end
-
-def identification_prompt(frame_count)
-  <<~PROMPT
-    #{frame_count}枚のサッカー試合フレームから、全選手を識別してください。
-
-    以下のJSON形式のみで返してください（説明文不要）：
-    {
-      "home_color": "ホームチームのジャージカラー（例: 青・白ストライプ）",
-      "away_color": "アウェイチームのジャージカラー",
-      "players": [
-        { "jersey_number": "背番号（数字）。読めない場合のみポジション名", "team": "home または away", "position": "GK/CB/SB/CM/CAM/LW/RW/ST" }
-      ]
-    }
-
-    注意:
-    - 両チーム各11名、合計22名をリストアップすること
-    - ユニフォーム背面・正面を精査して背番号を数字で読み取ること
-    - 背番号が読めない選手もポジション・チームが判断できれば必ずリストに含めること
-  PROMPT
-end
-
-def analysis_prompt(frame_count, roster = {})
-  roster_lines = (roster['players'] || []).map do |p|
-    "  - #{p['team']}チーム / 背番号#{p['jersey_number']} / #{p['position']}"
-  end.join("\n")
-  home_color = roster['home_color'] || 'ホームチーム'
-  away_color = roster['away_color'] || 'アウェイチーム'
-
-  <<~PROMPT
-    あなたはプロのサッカー試合アナリストです。#{frame_count}枚のサッカー試合の動画フレームを評価してください。
-
-    【事前識別済みの選手リスト】
-    以下の選手がすでに識別されています。この選手一覧を基に各選手のプレーを評価してください：
-#{roster_lines.empty? ? '  （情報なし）' : roster_lines}
-    ホームチームのジャージ: #{home_color}
-    アウェイチームのジャージ: #{away_color}
-
-    フレームを詳しく観察し、以下のJSON形式のみで分析結果を返してください。
-    マークダウンや説明文は不要です。純粋なJSONオブジェクトのみを返してください。
-
-    【レーティング採点基準】
-    各選手のratingはフレームで観察した具体的なプレーを根拠に加点・減点してください。
-
-    加点要素（観察できた場合に加点）:
-    - ゴール: +1.5〜2.0
-    - アシスト・決定的なラストパス: +0.8〜1.2
-    - シュートが枠を捉えた: +0.3
-    - キーパスや崩しのパス: +0.3〜0.5
-    - タックル成功・ボール奪取: +0.2〜0.4
-    - GKのビッグセーブ: +0.5〜1.0
-    - 積極的なドリブル突破成功: +0.2〜0.4
-
-    減点要素（観察できた場合に減点）:
-    - 守備のポジショニングミスで失点に絡む: -0.5〜1.0
-    - 明らかなシュートミス（至近距離で外す等）: -0.3〜0.5
-    - パスミスでボールを失う場面: -0.2〜0.4
-    - 不要なファウル: -0.2〜0.3
-    - GKが防げたはずの失点: -0.5〜1.0
-    - ボールウォッチャーになっている場面: -0.2
-
-    ベースライン: 試合に参加していて目立ったプレーがない選手は6.5〜7.0。
-    良いプレーが多い選手は8.0〜9.0。複数のミスがある選手は5.5〜6.5。
-
-    {
-      "match": {
-        "home_team": "ホームチーム名 (不明な場合は'ホームチーム')",
-        "away_team": "アウェイチーム名 (不明な場合は'アウェイチーム')",
-        "home_color": "ホームのジャージカラー",
-        "away_color": "アウェイのジャージカラー",
-        "estimated_score": "推定スコア (例: 2-1, 不明な場合は '?-?')",
-        "venue_type": "outdoor または indoor",
-        "analysis_note": "分析の信頼度や特記事項"
-      },
-      "players": [
-        {
-          "jersey_number": "ユニフォームに書かれた背番号（数字）。複数フレームを精査して読み取ること。どうしても読み取れない場合のみポジション名 (例: 'GK', 'CB') を使用",
-          "team": "home または away",
-          "position": "GK/CB/SB/CM/CAM/LW/RW/ST のいずれか",
-          "name": "選手名 (不明な場合は 'Unknown')",
-          "rating": 7.5,
-          "good_plays": "観察できた良いプレーを具体的に列挙（日本語）",
-          "bad_plays": "観察できたミス・悪いプレーを具体的に列挙。なければ空文字",
-          "attributes": {
-            "pace": 75, "shooting": 70, "passing": 72,
-            "dribbling": 68, "defending": 65, "physical": 72
-          },
-          "stats": {
-            "goals": 0, "assists": 0, "shots": 2, "shots_on_target": 1,
-            "passes_attempted": 35, "pass_accuracy": 85, "key_passes": 1,
-            "tackles": 3, "interceptions": 1, "dribbles": 2, "fouls": 1, "aerials_won": 2
-          },
-          "highlight": "採点根拠となった良いプレー・悪いプレーを含む総評（日本語）"
-        }
-      ],
-      "team_stats": {
-        "home": { "possession": 52, "shots": 12, "shots_on_target": 5, "corners": 4, "fouls": 10, "yellow_cards": 0, "red_cards": 0 },
-        "away": { "possession": 48, "shots": 8,  "shots_on_target": 3, "corners": 3, "fouls": 12, "yellow_cards": 0, "red_cards": 0 }
-      },
-      "match_highlights": ["試合の重要なシーン（日本語）"],
-      "mvp_jersey_number": "最優秀選手の背番号またはID",
-      "mvp_team": "home または away"
-    }
-
-    注意:
-    - 背番号の読み取りを最優先にしてください。フレームを拡大して観察し、ユニフォーム背面・正面に書かれた数字を丁寧に読み取ること
-    - 同じ選手が複数フレームに登場する場合、最も番号が読みやすいフレームを参照してください
-    - 背番号が読めた選手は必ず数字で記録し、ポジション名（GK等）は本当に読めない場合のみ使用してください
-    - レーティングは上記採点基準に従い、根拠のある加減点を行ってください。全員を7.0付近にまとめないこと
-    - 属性値は0〜100の範囲で設定してください
-    - ボール支配率: 各フレームで「どちらのチームの選手がボールを持っているか（またはボール周辺にいるか）」を数えてください。ホームが12/20フレームならhome=60%, away=40%のように算出してください
-    - コーナーキック: フレームにコーナーキックのシーン（コーナーフラッグ付近でのキック）が実際に映っている場合のみカウントしてください。映っていない場合は0にしてください
-    - シュート・タックル・ファウル: 実際に映っているプレーのみカウントし、推測で水増ししないでください
-    - イエローカード・レッドカード: 審判がカードを提示する場面が映っている場合のみ計上。見えない場合は必ず0にしてください
-    - ゴール数: 得点シーンまたはスコアボードが映っている場合のみ計上してください
-    - ハイライトは日本語で、実際にフレームから観察できた事実を記述してください
-    - 選手の識別は両チーム合計22名（各チーム11名）を目標にしてください。フレームに登場した選手は全員リストアップすること
-    - 背番号が見えない選手も、ポジションと所属チームが判断できれば必ずリストに含めてください。GK・DF・MF・FWと推定できれば十分です
-  PROMPT
+delete '/matches/:id' do
+  matches = load_matches
+  matches.reject! { |m| m['id'] == params[:id] }
+  save_matches(matches)
+  redirect '/'
 end
