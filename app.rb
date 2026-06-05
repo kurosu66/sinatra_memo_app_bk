@@ -83,10 +83,12 @@ def download_video(url, dir)
   out_template = File.join(dir, 'video.%(ext)s')
   base_args = [
     'yt-dlp',
-    '-f', 'best[height<=480][ext=mp4]/best[height<=480]/best',
+    '-f', 'bestvideo[height<=480]+bestaudio/best[height<=480]/best',
+    '--extractor-args', 'youtube:player_client=tv_embedded,web',
     '--match-filter', 'duration < 7200',
     '--no-playlist',
     '--retries', '3',
+    '--merge-output-format', 'mp4',
     '-o', out_template,
   ]
 
