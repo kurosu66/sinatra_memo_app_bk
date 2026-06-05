@@ -484,7 +484,7 @@ main { flex: 1; }
 .score-label { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .match-meta { font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
 
-/* ── Team Stats Bar ── */
+/* ── Team Stats Cards ── */
 .team-stats-section { margin-bottom: 32px; }
 .section-title {
   font-size: 1.1rem;
@@ -494,38 +494,40 @@ main { flex: 1; }
   letter-spacing: 0.8px;
   margin-bottom: 16px;
 }
-.stat-bars-card {
+.ts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ts-card {
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 20px;
-  padding: 24px;
-  display: grid;
-  gap: 14px;
+  overflow: hidden;
 }
-.stat-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+.ts-card.home { border-top: 3px solid var(--home); }
+.ts-card.away { border-top: 3px solid var(--away); }
+.ts-card-header {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 14px 20px 12px;
+}
+.ts-card-header.home { color: #82b1ff; background: rgba(41,121,255,0.08); }
+.ts-card-header.away { color: #ff8a80; background: rgba(255,82,82,0.08); }
+.ts-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--card-border);
 }
-.stat-val-home { text-align: right; font-weight: 700; font-size: 0.95rem; }
-.stat-val-away { font-weight: 700; font-size: 0.95rem; }
-.stat-label-center { text-align: center; font-size: 0.75rem; color: var(--muted); min-width: 90px; }
-.stat-bar-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  height: 6px;
+.ts-label { font-size: 0.8rem; color: var(--muted); }
+.ts-value { font-size: 0.95rem; font-weight: 700; }
+@media (max-width: 640px) {
+  .ts-grid { grid-template-columns: 1fr; }
 }
-.bar-home-wrap { display: flex; justify-content: flex-end; }
-.bar-away-wrap { display: flex; }
-.bar-fill {
-  height: 6px;
-  border-radius: 3px;
-  transition: width 1s ease;
-}
-.bar-fill.home { background: var(--home); border-radius: 3px 0 0 3px; }
-.bar-fill.away { background: var(--away); border-radius: 0 3px 3px 0; }
 
 /* ── Players Grid ── */
 .players-section { margin-bottom: 32px; }

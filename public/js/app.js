@@ -310,38 +310,39 @@ function renderTeamStats(team_stats, match) {
   const h = team_stats.home;
   const a = team_stats.away;
 
-  const rows = [
-    { label: 'ボール支配率', hv: h.possession + '%', av: a.possession + '%', hp: h.possession, ap: a.possession },
-    { label: 'シュート', hv: h.shots, av: a.shots, hp: h.shots, ap: a.shots },
-    { label: '枠内シュート', hv: h.shots_on_target, av: a.shots_on_target, hp: h.shots_on_target, ap: a.shots_on_target },
-    { label: 'コーナーキック', hv: h.corners, av: a.corners, hp: h.corners, ap: a.corners },
-    { label: 'ファウル', hv: h.fouls, av: a.fouls, hp: h.fouls, ap: a.fouls },
-    { label: 'イエローカード', hv: h.yellow_cards, av: a.yellow_cards, hp: h.yellow_cards, ap: a.yellow_cards },
+  const statDefs = [
+    { label: 'ボール支配率', hv: h.possession + '%', av: a.possession + '%' },
+    { label: 'シュート',     hv: h.shots,            av: a.shots },
+    { label: '枠内シュート', hv: h.shots_on_target,  av: a.shots_on_target },
+    { label: 'コーナーキック', hv: h.corners,         av: a.corners },
+    { label: 'ファウル',     hv: h.fouls,            av: a.fouls },
+    { label: 'イエローカード', hv: h.yellow_cards,   av: a.yellow_cards },
+    { label: 'レッドカード',  hv: h.red_cards,       av: a.red_cards },
   ];
+
+  const makeCard = (teamLabel, teamClass, vals) => {
+    let rows = statDefs.map((d, i) => `
+      <div class="ts-row">
+        <span class="ts-label">${d.label}</span>
+        <span class="ts-value">${vals[i]}</span>
+      </div>
+    `).join('');
+    return `
+      <div class="ts-card ${teamClass}">
+        <div class="ts-card-header ${teamClass}">${esc(teamLabel)}</div>
+        ${rows}
+      </div>
+    `;
+  };
+
+  const homeVals = statDefs.map(d => d.hv);
+  const awayVals = statDefs.map(d => d.av);
 
   let html = '<div class="team-stats-section">';
   html += '<h2 class="section-title">チームスタッツ</h2>';
-  html += '<div class="stat-bars-card">';
-
-  for (const row of rows) {
-    const total = (row.hp || 0) + (row.ap || 0) || 1;
-    const hw = Math.round((row.hp / total) * 100);
-    const aw = Math.round((row.ap / total) * 100);
-    html += `
-      <div>
-        <div class="stat-row">
-          <div class="stat-val-home">${row.hv}</div>
-          <div class="stat-label-center">${row.label}</div>
-          <div class="stat-val-away">${row.av}</div>
-        </div>
-        <div class="stat-bar-row">
-          <div class="bar-home-wrap"><div class="bar-fill home" style="width:${hw}%"></div></div>
-          <div class="bar-away-wrap"><div class="bar-fill away" style="width:${aw}%"></div></div>
-        </div>
-      </div>
-    `;
-  }
-
+  html += '<div class="ts-grid">';
+  html += makeCard(match.home_team, 'home', homeVals);
+  html += makeCard(match.away_team, 'away', awayVals);
   html += '</div></div>';
   return html;
 }
