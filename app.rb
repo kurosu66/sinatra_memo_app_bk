@@ -67,10 +67,10 @@ def download_and_extract_frames(url, frame_count = 20)
   check_tool!('yt-dlp', 'pip install yt-dlp')
   check_tool!('ffmpeg',  'brew install ffmpeg')
 
-  stream_url = get_stream_url(url)
+  stream_url, duration = get_stream_info(url)
 
   Dir.mktmpdir('soccer_') do |tmp|
-    extract_frames_from_stream(stream_url, tmp, frame_count)
+    extract_frames_from_stream(stream_url, duration, tmp, frame_count)
   end
 end
 
@@ -90,12 +90,12 @@ def find_cookies_file
   ].find { |f| File.exist?(f) }
 end
 
-def get_stream_url(youtube_url)
+def get_stream_info(youtube_url)
   args = [
     'yt-dlp',
     '-f', '18/best[height<=480]/best',
-    '--get-url',
     '--no-playlist',
+    '--dump-json',
   ]
 
   cookies_file = find_cookies_file
@@ -107,27 +107,23 @@ def get_stream_url(youtube_url)
   end
 
   stdout, stderr, status = Open3.capture3(*args, youtube_url)
-
   unless status.success?
-    raise "ストリームURLの取得に失敗しました: #{stderr.lines.last&.strip}"
+    raise "動画情報の取得に失敗しました: #{stderr.lines.last&.strip}"
   end
 
-  stream_url = stdout.strip.lines.first&.strip
-  raise 'ストリームURLが取得できませんでした' if stream_url.nil? || stream_url.empty?
+  info = JSON.parse(stdout)
+  url = info['url'] || info.dig('requested_formats', 0, 'url')
+  raise 'ストリームURLが取得できませんでした' if url.nil? || url.empty?
 
-  warn "[ffmpeg] ストリームURLを取得しました"
-  stream_url
+  duration = info['duration']&.to_f || 60.0
+  warn "[yt-dlp] 取得完了: #{info['title']} (#{duration.round}秒)"
+
+  [url, duration]
 end
 
-def extract_frames_from_stream(stream_url, dir, count)
-  # まず動画の長さを取得（最大30秒待つ）
-  probe_out, = Open3.capture2(
-    'ffprobe', '-v', 'quiet', '-print_format', 'json',
-    '-show_format', '-timeout', '30000000', stream_url
-  )
-  duration = JSON.parse(probe_out).dig('format', 'duration')&.to_f || 60.0
-  duration = [duration, 0.1].max
-  warn "[ffmpeg] 動画時間: #{duration.round}秒"
+def extract_frames_from_stream(stream_url, duration, dir, count)
+  duration = [duration, 1.0].max
+  ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
 
   frames = []
   count.times do |i|
@@ -135,18 +131,23 @@ def extract_frames_from_stream(stream_url, dir, count)
     t = [t, 0].max
     frame_path = File.join(dir, format('frame_%03d.jpg', i))
 
-    _, _, status = Open3.capture2e(
-      'ffmpeg', '-ss', t.to_s,
+    out, status = Open3.capture2e(
+      'ffmpeg',
+      '-headers', "User-Agent: #{ua}\r\nReferer: https://www.youtube.com/\r\n",
+      '-ss', t.to_s,
       '-i', stream_url,
       '-vframes', '1', '-q:v', '3',
       '-vf', 'scale=854:480:force_original_aspect_ratio=decrease',
-      '-timeout', '15000000',
       frame_path, '-y'
     )
 
-    next unless File.exist?(frame_path) && File.size(frame_path) > 0
+    unless File.exist?(frame_path) && File.size(frame_path) > 0
+      warn "[ffmpeg] フレーム #{i + 1} スキップ: #{out.lines.last&.strip}"
+      next
+    end
+
     frames << Base64.strict_encode64(File.binread(frame_path))
-    warn "[ffmpeg] フレーム #{i + 1}/#{count} 取得"
+    warn "[ffmpeg] フレーム #{i + 1}/#{count} 取得 (t=#{t.round}s)"
   end
 
   raise 'フレームの抽出に失敗しました' if frames.empty?
