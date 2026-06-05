@@ -436,3 +436,113 @@ function formatDuration(s) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Demo ──
+function showDemo() {
+  renderResults(DEMO_DATA);
+  showView('results-view');
+}
+
+const DEMO_DATA = {
+  match: {
+    home_team: "VJ BRIDGE FC",
+    away_team: "FC LIONS",
+    home_color: "青・白ストライプ",
+    away_color: "赤・黒",
+    estimated_score: "3-1",
+    venue_type: "outdoor",
+    analysis_note: "デモ用サンプルデータです。実際の分析では動画フレームからAIが自動生成します。"
+  },
+  team_stats: {
+    home: { possession: 58, shots: 16, shots_on_target: 8, corners: 6, fouls: 9, yellow_cards: 1, red_cards: 0 },
+    away: { possession: 42, shots: 10, shots_on_target: 4, corners: 3, fouls: 13, yellow_cards: 3, red_cards: 0 }
+  },
+  players: [
+    {
+      jersey_number: "10", team: "home", position: "CAM", name: "Nguyen Van A",
+      rating: 9.1,
+      attributes: { pace: 82, shooting: 85, passing: 91, dribbling: 88, defending: 42, physical: 74 },
+      stats: { goals: 2, assists: 1, shots: 5, shots_on_target: 4, passes_attempted: 54, pass_accuracy: 89, key_passes: 5, tackles: 1, interceptions: 0, dribbles: 7, fouls: 1, aerials_won: 1 },
+      highlight: "2ゴール1アシストの圧倒的なパフォーマンス。ゲームを支配し続けた試合のMVP。"
+    },
+    {
+      jersey_number: "9", team: "home", position: "ST", name: "Tran Minh B",
+      rating: 7.8,
+      attributes: { pace: 88, shooting: 80, passing: 65, dribbling: 72, defending: 30, physical: 82 },
+      stats: { goals: 1, assists: 0, shots: 4, shots_on_target: 3, passes_attempted: 22, pass_accuracy: 77, key_passes: 1, tackles: 0, interceptions: 0, dribbles: 5, fouls: 2, aerials_won: 4 },
+      highlight: "裏抜けからゴールを奪取。空中戦でも存在感を示した。"
+    },
+    {
+      jersey_number: "7", team: "home", position: "LW", name: "Le Quoc C",
+      rating: 7.4,
+      attributes: { pace: 90, shooting: 70, passing: 74, dribbling: 85, defending: 38, physical: 68 },
+      stats: { goals: 0, assists: 2, shots: 3, shots_on_target: 1, passes_attempted: 38, pass_accuracy: 82, key_passes: 4, tackles: 1, interceptions: 1, dribbles: 9, fouls: 2, aerials_won: 0 },
+      highlight: "サイドを制圧し2アシスト。1対1では無敵の突破力を見せた。"
+    },
+    {
+      jersey_number: "6", team: "home", position: "CM", name: "Pham Duc D",
+      rating: 7.2,
+      attributes: { pace: 70, shooting: 58, passing: 84, dribbling: 72, defending: 75, physical: 80 },
+      stats: { goals: 0, assists: 0, shots: 1, shots_on_target: 0, passes_attempted: 62, pass_accuracy: 87, key_passes: 3, tackles: 5, interceptions: 3, dribbles: 2, fouls: 3, aerials_won: 3 },
+      highlight: "中盤でゲームをコントロール。守備でも高いインターセプト率。"
+    },
+    {
+      jersey_number: "5", team: "home", position: "CB", name: "Hoang Tuan E",
+      rating: 7.0,
+      attributes: { pace: 65, shooting: 40, passing: 72, dribbling: 55, defending: 85, physical: 88 },
+      stats: { goals: 0, assists: 0, shots: 0, shots_on_target: 0, passes_attempted: 44, pass_accuracy: 84, key_passes: 0, tackles: 6, interceptions: 4, dribbles: 0, fouls: 2, aerials_won: 7 },
+      highlight: "安定した守備でゴールを1失点に抑えた。空中戦でほぼ無敗。"
+    },
+    {
+      jersey_number: "4", team: "home", position: "CB", name: "Do Van F",
+      rating: 6.8,
+      attributes: { pace: 62, shooting: 38, passing: 70, dribbling: 50, defending: 83, physical: 85 },
+      stats: { goals: 0, assists: 0, shots: 0, shots_on_target: 0, passes_attempted: 40, pass_accuracy: 80, key_passes: 0, tackles: 5, interceptions: 2, dribbles: 0, fouls: 3, aerials_won: 5 },
+      highlight: "堅実なマーキングで相手エースを封じ込めた。"
+    },
+    {
+      jersey_number: "1", team: "home", position: "GK", name: "Bui Thanh G",
+      rating: 7.3,
+      attributes: { pace: 55, shooting: 20, passing: 68, dribbling: 30, defending: 88, physical: 78 },
+      stats: { goals: 0, assists: 0, shots: 0, shots_on_target: 0, passes_attempted: 18, pass_accuracy: 83, key_passes: 0, tackles: 0, interceptions: 0, dribbles: 0, fouls: 0, aerials_won: 3 },
+      highlight: "相手の3本のシュートを確実にセーブ。判断力の高いキーパー。"
+    },
+    {
+      jersey_number: "11", team: "away", position: "ST", name: "Yamada K",
+      rating: 7.5,
+      attributes: { pace: 85, shooting: 82, passing: 68, dribbling: 75, defending: 28, physical: 79 },
+      stats: { goals: 1, assists: 0, shots: 5, shots_on_target: 3, passes_attempted: 20, pass_accuracy: 72, key_passes: 1, tackles: 0, interceptions: 0, dribbles: 4, fouls: 1, aerials_won: 3 },
+      highlight: "個人技で1ゴールを奪取。守備の裏を取る動きが秀逸だった。"
+    },
+    {
+      jersey_number: "8", team: "away", position: "CM", name: "Suzuki T",
+      rating: 6.7,
+      attributes: { pace: 68, shooting: 62, passing: 78, dribbling: 65, defending: 70, physical: 75 },
+      stats: { goals: 0, assists: 1, shots: 2, shots_on_target: 1, passes_attempted: 48, pass_accuracy: 80, key_passes: 2, tackles: 4, interceptions: 2, dribbles: 3, fouls: 4, aerials_won: 2 },
+      highlight: "ゴールアシストを記録。ファウルが多く後半は警告を受けた。"
+    },
+    {
+      jersey_number: "3", team: "away", position: "SB", name: "Tanaka R",
+      rating: 6.2,
+      attributes: { pace: 75, shooting: 45, passing: 70, dribbling: 60, defending: 76, physical: 72 },
+      stats: { goals: 0, assists: 0, shots: 1, shots_on_target: 0, passes_attempted: 35, pass_accuracy: 74, key_passes: 0, tackles: 3, interceptions: 1, dribbles: 2, fouls: 3, aerials_won: 1 },
+      highlight: "右サイドを担当したが、相手WGの突破を数回許した。"
+    },
+    {
+      jersey_number: "1", team: "away", position: "GK", name: "Watanabe S",
+      rating: 5.8,
+      attributes: { pace: 50, shooting: 15, passing: 60, dribbling: 25, defending: 74, physical: 70 },
+      stats: { goals: 0, assists: 0, shots: 0, shots_on_target: 0, passes_attempted: 14, pass_accuracy: 71, key_passes: 0, tackles: 0, interceptions: 0, dribbles: 0, fouls: 0, aerials_won: 1 },
+      highlight: "3失点を喫した。特に前半は連続失点で立て直しができなかった。"
+    }
+  ],
+  match_highlights: [
+    "前半22分 — #10 Nguyen が見事なフリーキックを直接ゴール。VJ Bridge が先制。",
+    "前半38分 — #7 Le のクロスから #9 Tran がヘッドで追加点。2-0。",
+    "後半5分 — FC Lions #11 Yamada が反撃の1点。2-1とゲームが動く。",
+    "後半31分 — #10 Nguyen が個人技でDF2枚を外し、冷静にゴール右隅に流し込む。3-1で試合を決定づけた。",
+    "後半ロスタイム — FC Lions に退場者が出るも試合はそのまま終了。"
+  ],
+  mvp_jersey_number: "10",
+  mvp_team: "home"
+};

@@ -212,6 +212,23 @@ main { flex: 1; }
   transition: all 0.2s;
 }
 .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+.btn-demo {
+  margin-top: 28px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(0, 230, 118, 0.4);
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.btn-demo:hover {
+  background: rgba(0, 230, 118, 0.1);
+  border-color: var(--accent);
+}
 .btn-back {
   background: transparent;
   color: var(--muted);
