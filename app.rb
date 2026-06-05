@@ -74,13 +74,6 @@ def download_and_extract_frames(url, frame_count = 20)
   end
 end
 
-def detect_browser
-  # macOSではSafari優先、LinuxではChrome/Chromium
-  return 'safari'  if RUBY_PLATFORM.include?('darwin')
-  return 'chrome'  if system('which google-chrome > /dev/null 2>&1')
-  return 'chromium'
-end
-
 def check_tool!(name, install_hint)
   _, status = Open3.capture2e('which', name)
   raise "#{name} が見つかりません。#{install_hint} でインストールしてください。" unless status.success?
@@ -97,17 +90,29 @@ def download_video(url, dir)
     '-o', out_template,
   ]
 
-  # Cookieを使うブラウザを環境変数で切替可能（デフォルト: safari）
-  browser = ENV.fetch('YTDLP_BROWSER', detect_browser)
-
-  # まずCookieなしで試み、403ならブラウザCookieで再試行
-  _, stderr, status = Open3.capture3(*base_args, url)
-  if !status.success? && stderr.include?('403')
-    warn "[yt-dlp] 403エラー。#{browser}のCookieで再試行します..."
-    _, stderr, status = Open3.capture3(*base_args, '--cookies-from-browser', browser, url)
+  # cookies.txt があれば優先して使う
+  cookies_file = File.expand_path('cookies.txt', __dir__)
+  if File.exist?(cookies_file)
+    base_args += ['--cookies', cookies_file]
   end
 
-  raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}" unless status.success?
+  _, stderr, status = Open3.capture3(*base_args, url)
+
+  unless status.success?
+    if stderr.include?('403') || stderr.include?('Sign in')
+      raise <<~MSG.strip
+        動画のダウンロードに失敗しました（YouTubeのアクセス制限）。
+
+        【解決方法】アプリフォルダに cookies.txt を設置してください：
+        1. Chrome に拡張「Get cookies.txt LOCALLY」をインストール
+        2. YouTube (youtube.com) を開いてログイン
+        3. 拡張アイコンをクリック → Export → cookies.txt を保存
+        4. sinatra_memo_app_bk/ フォルダに cookies.txt を置く
+        5. サーバーを再起動
+      MSG
+    end
+    raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}"
+  end
 
   video = Dir[File.join(dir, 'video.*')].reject { |f| f.end_with?('.part') }.first
   raise '動画ファイルが見つかりません' unless video
