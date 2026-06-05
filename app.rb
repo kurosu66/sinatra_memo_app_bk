@@ -159,7 +159,7 @@ def extract_frames_from_file(video_path, dir, count, fallback_duration)
     Open3.capture2e(
       'ffmpeg', '-ss', t.to_s, '-i', video_path,
       '-vframes', '1', '-q:v', '3',
-      '-vf', 'scale=854:480:force_original_aspect_ratio=decrease',
+      '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease',
       frame_path, '-y'
     )
 
@@ -179,12 +179,30 @@ def analyze_frames(frames_data)
   api_key = ENV['ANTHROPIC_API_KEY']
   raise 'ANTHROPIC_API_KEY が設定されていません。.env ファイルを確認してください。' unless api_key
 
-  content = [{ type: 'text', text: analysis_prompt(frames_data.length) }]
-  frames_data.each do |frame|
+  images = frames_data.map do |frame|
     base64 = frame.include?(',') ? frame.split(',', 2)[1] : frame
-    content << { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } }
+    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } }
   end
 
+  # Pass 1: 選手識別
+  warn "[claude] Pass 1: 選手識別中 (#{frames_data.size}フレーム)..."
+  roster = call_claude(
+    [{ type: 'text', text: identification_prompt(frames_data.length) }] + images,
+    api_key, max_tokens: 2048
+  )
+  warn "[claude] Pass 1完了: #{roster['players']&.size || 0}名識別"
+
+  # Pass 2: プレー評価（Pass 1の選手リストを活用）
+  warn "[claude] Pass 2: プレー評価中..."
+  result = call_claude(
+    [{ type: 'text', text: analysis_prompt(frames_data.length, roster) }] + images,
+    api_key, max_tokens: 8192
+  )
+  warn "[claude] Pass 2完了"
+  result
+end
+
+def call_claude(content, api_key, max_tokens: 4096)
   uri = URI('https://api.anthropic.com/v1/messages')
   response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 360) do |http|
     req = Net::HTTP::Post.new(uri)
@@ -193,7 +211,7 @@ def analyze_frames(frames_data)
     req['anthropic-version'] = '2023-06-01'
     req.body = {
       model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
+      max_tokens: max_tokens,
       messages: [{ role: 'user', content: content }]
     }.to_json
     http.request(req)
@@ -217,9 +235,41 @@ def analyze_frames(frames_data)
   end
 end
 
-def analysis_prompt(frame_count)
+def identification_prompt(frame_count)
   <<~PROMPT
-    あなたはプロのサッカー試合アナリストです。#{frame_count}枚のサッカー試合の動画フレームを分析してください。
+    #{frame_count}枚のサッカー試合フレームから、全選手を識別してください。
+
+    以下のJSON形式のみで返してください（説明文不要）：
+    {
+      "home_color": "ホームチームのジャージカラー（例: 青・白ストライプ）",
+      "away_color": "アウェイチームのジャージカラー",
+      "players": [
+        { "jersey_number": "背番号（数字）。読めない場合のみポジション名", "team": "home または away", "position": "GK/CB/SB/CM/CAM/LW/RW/ST" }
+      ]
+    }
+
+    注意:
+    - 両チーム各11名、合計22名をリストアップすること
+    - ユニフォーム背面・正面を精査して背番号を数字で読み取ること
+    - 背番号が読めない選手もポジション・チームが判断できれば必ずリストに含めること
+  PROMPT
+end
+
+def analysis_prompt(frame_count, roster = {})
+  roster_lines = (roster['players'] || []).map do |p|
+    "  - #{p['team']}チーム / 背番号#{p['jersey_number']} / #{p['position']}"
+  end.join("\n")
+  home_color = roster['home_color'] || 'ホームチーム'
+  away_color = roster['away_color'] || 'アウェイチーム'
+
+  <<~PROMPT
+    あなたはプロのサッカー試合アナリストです。#{frame_count}枚のサッカー試合の動画フレームを評価してください。
+
+    【事前識別済みの選手リスト】
+    以下の選手がすでに識別されています。この選手一覧を基に各選手のプレーを評価してください：
+#{roster_lines.empty? ? '  （情報なし）' : roster_lines}
+    ホームチームのジャージ: #{home_color}
+    アウェイチームのジャージ: #{away_color}
 
     フレームを詳しく観察し、以下のJSON形式のみで分析結果を返してください。
     マークダウンや説明文は不要です。純粋なJSONオブジェクトのみを返してください。
