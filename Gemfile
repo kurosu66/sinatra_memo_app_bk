@@ -4,3 +4,5 @@ gem 'sinatra', '~> 3.0'
 gem 'sinatra-contrib', '~> 3.0'
 gem 'json'
 gem 'dotenv'
+
+gem "webrick", "~> 1.9"
