@@ -128,17 +128,27 @@ def extract_frames_from_stream(stream_url, duration, dir, count)
   curl = File.exist?('/usr/bin/curl') ? '/usr/bin/curl' : 'curl'
   warn "[curl] 動画をダウンロード中... (#{(duration / 60).round}分の動画)"
 
-  _, stderr, status = Open3.capture3(
+  curl_args = [
     curl, '-L', '-o', video_path,
     '-A', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
     '-e', 'https://www.youtube.com/',
-    '--silent', '--show-error',
+    '--write-out', '%{http_code}',
     '--max-time', '600',
-    stream_url
-  )
+  ]
+
+  # CDNアクセスにもcookiesが必要
+  cookies_file = find_cookies_file
+  if cookies_file
+    curl_args += ['-b', cookies_file]
+    warn "[curl] cookies.txt を使用"
+  end
+
+  curl_args << stream_url
+  stdout, stderr, status = Open3.capture3(*curl_args)
+  http_code = stdout.strip
 
   unless File.exist?(video_path) && File.size(video_path) > 1024
-    raise "動画のダウンロードに失敗しました: #{stderr.strip}"
+    raise "動画のダウンロードに失敗しました (HTTP #{http_code}): #{stderr.strip}"
   end
 
   mb = (File.size(video_path) / 1024.0 / 1024.0).round(1)
