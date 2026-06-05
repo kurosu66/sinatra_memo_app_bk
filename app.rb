@@ -254,8 +254,8 @@ def analysis_prompt(frame_count)
         }
       ],
       "team_stats": {
-        "home": { "possession": 52, "shots": 12, "shots_on_target": 5, "corners": 4, "fouls": 10, "yellow_cards": 1, "red_cards": 0 },
-        "away": { "possession": 48, "shots": 8,  "shots_on_target": 3, "corners": 3, "fouls": 12, "yellow_cards": 2, "red_cards": 0 }
+        "home": { "possession": 52, "shots": 12, "shots_on_target": 5, "corners": 4, "fouls": 10, "yellow_cards": 0, "red_cards": 0 },
+        "away": { "possession": 48, "shots": 8,  "shots_on_target": 3, "corners": 3, "fouls": 12, "yellow_cards": 0, "red_cards": 0 }
       },
       "match_highlights": ["試合の重要なシーン（日本語）"],
       "mvp_jersey_number": "最優秀選手の背番号またはID",
@@ -266,8 +266,10 @@ def analysis_prompt(frame_count)
     - 選手は背番号またはポジション名で識別してください
     - レーティングは1〜10スケール (6.0〜7.0=平均的, 7.5〜8.5=良好, 9.0+=卓越)
     - 属性値は0〜100の範囲で設定してください
-    - 観察した行動に基づいてスタッツを現実的に推定してください
-    - ハイライトと選手のコメントは日本語で記述してください
+    - スタッツはフレームで実際に観察できたプレーのみカウントしてください。見えていない場面は0としてください
+    - イエローカード・レッドカードは、フレームに審判がカードを提示する場面が映っている場合のみ計上してください。見えない場合は必ず0にしてください
+    - ゴール数も、フレームに得点シーンまたはスコアボードが映っている場合のみ計上してください
+    - ハイライトは日本語で、実際にフレームから観察できた事実を記述してください
     - できるだけ多くの選手を識別・分析してください (最低でも6〜11名)
   PROMPT
 end
