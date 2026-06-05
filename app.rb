@@ -74,6 +74,13 @@ def download_and_extract_frames(url, frame_count = 20)
   end
 end
 
+def detect_browser
+  # macOSではSafari優先、LinuxではChrome/Chromium
+  return 'safari'  if RUBY_PLATFORM.include?('darwin')
+  return 'chrome'  if system('which google-chrome > /dev/null 2>&1')
+  return 'chromium'
+end
+
 def check_tool!(name, install_hint)
   _, status = Open3.capture2e('which', name)
   raise "#{name} が見つかりません。#{install_hint} でインストールしてください。" unless status.success?
@@ -81,15 +88,25 @@ end
 
 def download_video(url, dir)
   out_template = File.join(dir, 'video.%(ext)s')
-  args = [
+  base_args = [
     'yt-dlp',
     '-f', 'best[height<=480][ext=mp4]/best[height<=480]/best',
-    '--match-filter', 'duration < 7200',   # 2時間超はスキップ
+    '--match-filter', 'duration < 7200',
     '--no-playlist',
+    '--retries', '3',
     '-o', out_template,
-    url
   ]
-  stdout, stderr, status = Open3.capture3(*args)
+
+  # Cookieを使うブラウザを環境変数で切替可能（デフォルト: safari）
+  browser = ENV.fetch('YTDLP_BROWSER', detect_browser)
+
+  # まずCookieなしで試み、403ならブラウザCookieで再試行
+  _, stderr, status = Open3.capture3(*base_args, url)
+  if !status.success? && stderr.include?('403')
+    warn "[yt-dlp] 403エラー。#{browser}のCookieで再試行します..."
+    _, stderr, status = Open3.capture3(*base_args, '--cookies-from-browser', browser, url)
+  end
+
   raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}" unless status.success?
 
   video = Dir[File.join(dir, 'video.*')].reject { |f| f.end_with?('.part') }.first
