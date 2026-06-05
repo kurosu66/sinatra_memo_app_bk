@@ -102,31 +102,35 @@ def download_with_ytdlp(youtube_url, dir)
   base_args = ['yt-dlp', '--no-playlist', '--no-part', '-o', output_tmpl]
   base_args += ['--cookies', cookies_file] if cookies_file
 
-  # SABRを回避するためクライアントを順番に試す
+  fmt = 'best[height<=480][ext=mp4]/best[height<=480]/best'
+
+  # SABRを回避するためクライアントを順番に試す（formatは動的に選択させる）
   candidates = [
-    { client: 'mweb',         fmt: '18/best[height<=480]/best' },
-    { client: 'tv_embedded',  fmt: '18/best[height<=480]/best' },
-    { client: 'ios',          fmt: '18/best[height<=480]/best' },
-    { client: 'web_embedded', fmt: 'best[height<=480]/best'    },
+    ['tv'],
+    ['android'],
+    ['tv_embedded'],
+    ['mweb'],
+    [],  # クライアント指定なし（yt-dlpデフォルト）
   ]
 
   last_error = nil
-  candidates.each do |c|
-    warn "[yt-dlp] client=#{c[:client]} でダウンロード試行..."
-    args = base_args + [
-      '-f', c[:fmt],
-      '--extractor-args', "youtube:player_client=#{c[:client]}",
-      youtube_url,
-    ]
+  candidates.each do |clients|
+    label = clients.empty? ? 'default' : clients.join(',')
+    warn "[yt-dlp] client=#{label} でダウンロード試行..."
+    args = base_args.dup
+    args += ['-f', fmt]
+    args += ['--extractor-args', "youtube:player_client=#{clients.join(',')}"] unless clients.empty?
+    args << youtube_url
+
     _stdout, stderr, status = Open3.capture3(*args)
     downloaded = Dir[File.join(dir, 'video.*')].find { |f| File.size?(f).to_i > 1024 }
     if downloaded
       mb = (File.size(downloaded) / 1024.0 / 1024.0).round(1)
-      warn "[yt-dlp] #{mb}MB ダウンロード完了 (client=#{c[:client]})"
+      warn "[yt-dlp] #{mb}MB ダウンロード完了 (client=#{label})"
       return downloaded
     end
     last_error = stderr.lines.grep(/ERROR/).last&.strip || stderr.lines.last&.strip
-    warn "[yt-dlp] client=#{c[:client]} 失敗: #{last_error}"
+    warn "[yt-dlp] client=#{label} 失敗: #{last_error}"
   end
 
   raise "動画のダウンロードに失敗しました: #{last_error}"
