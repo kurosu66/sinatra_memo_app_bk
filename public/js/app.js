@@ -399,9 +399,15 @@ function renderPlayerCard(player, isMvp) {
     </div>
   </div>`;
 
-  // Highlight
-  if (player.highlight) {
-    card += `<div class="player-highlight">${esc(player.highlight)}</div>`;
+  // Good / Bad plays + highlight
+  const hasGood = player.good_plays && player.good_plays.trim();
+  const hasBad  = player.bad_plays  && player.bad_plays.trim();
+  if (hasGood || hasBad || player.highlight) {
+    card += `<div class="player-highlight">`;
+    if (hasGood) card += `<div class="play-good">✅ ${esc(player.good_plays)}</div>`;
+    if (hasBad)  card += `<div class="play-bad">⚠️ ${esc(player.bad_plays)}</div>`;
+    if (player.highlight) card += `<div class="play-summary">${esc(player.highlight)}</div>`;
+    card += `</div>`;
   }
 
   card += '</div>';
