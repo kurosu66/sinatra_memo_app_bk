@@ -111,18 +111,15 @@ def download_video(url, dir)
   _, stderr, status = Open3.capture3(*base_args, url)
 
   unless status.success?
-    if stderr.include?('403') || stderr.include?('Sign in')
-      raise <<~MSG.strip
-        動画のダウンロードに失敗しました（YouTubeのアクセス制限）。
+    checked_paths = [
+      File.join(File.dirname(File.expand_path(__FILE__)), 'cookies.txt'),
+      File.join(Dir.pwd, 'cookies.txt'),
+      File.expand_path('~/sinatra_memo_app_bk/cookies.txt')
+    ]
+    debug_info = "【デバッグ】cookies使用: #{cookies_file || 'なし'} / 確認したパス: #{checked_paths.join(', ')}"
 
-        【解決方法】アプリフォルダに cookies.txt を設置してください：
-        1. Opera Air で https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc を開く
-        2. 「Operaに追加」でインストール
-        3. YouTube (youtube.com) を開いてログイン済みの状態で拡張アイコンをクリック
-        4. Export → cookies.txt を保存
-        5. sinatra_memo_app_bk/ フォルダに cookies.txt を置く
-        6. サーバーを再起動
-      MSG
+    if stderr.include?('403') || stderr.include?('Sign in')
+      raise "動画のダウンロードに失敗しました（YouTubeのアクセス制限）\n#{debug_info}"
     end
     raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}"
   end
