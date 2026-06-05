@@ -104,11 +104,12 @@ def download_video(url, dir)
         動画のダウンロードに失敗しました（YouTubeのアクセス制限）。
 
         【解決方法】アプリフォルダに cookies.txt を設置してください：
-        1. Chrome に拡張「Get cookies.txt LOCALLY」をインストール
-        2. YouTube (youtube.com) を開いてログイン
-        3. 拡張アイコンをクリック → Export → cookies.txt を保存
-        4. sinatra_memo_app_bk/ フォルダに cookies.txt を置く
-        5. サーバーを再起動
+        1. Opera Air で https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc を開く
+        2. 「Operaに追加」でインストール
+        3. YouTube (youtube.com) を開いてログイン済みの状態で拡張アイコンをクリック
+        4. Export → cookies.txt を保存
+        5. sinatra_memo_app_bk/ フォルダに cookies.txt を置く
+        6. サーバーを再起動
       MSG
     end
     raise "動画のダウンロードに失敗しました: #{stderr.lines.last&.strip}"
