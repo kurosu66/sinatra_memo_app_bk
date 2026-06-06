@@ -133,6 +133,8 @@ export default function MatchForm({ initialData, allPlayers, onSubmit, submitLab
   const [awayTeam, setAwayTeam] = useState(initialData?.away_team ?? '');
   const [homeScore, setHomeScore] = useState(String(initialData?.home_score ?? 0));
   const [awayScore, setAwayScore] = useState(String(initialData?.away_score ?? 0));
+  const [homeFormation, setHomeFormation] = useState(initialData?.home_formation ?? '');
+  const [awayFormation, setAwayFormation] = useState(initialData?.away_formation ?? '');
   const [note, setNote] = useState(initialData?.note ?? '');
 
   const [homePlayers, setHomePlayers] = useState<MatchPlayerInput[]>(
@@ -182,6 +184,8 @@ export default function MatchForm({ initialData, allPlayers, onSubmit, submitLab
         date, location,
         home_team: homeTeam, away_team: awayTeam,
         home_score: Number(homeScore), away_score: Number(awayScore),
+        home_formation: homeFormation || null,
+        away_formation: awayFormation || null,
         note,
         players: [
           ...homePlayers.map(p => ({ ...p, team: 'home', rating: p.rating !== '' ? p.rating : null })),
@@ -224,6 +228,14 @@ export default function MatchForm({ initialData, allPlayers, onSubmit, submitLab
           <div>
             <label className="block text-xs text-muted mb-1">アウェイチーム</label>
             <input type="text" value={awayTeam} onChange={e => setAwayTeam(e.target.value)} placeholder="チーム名" className={`${inputCls} text-away`} />
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1">ホーム フォーメーション</label>
+            <input type="text" value={homeFormation} onChange={e => setHomeFormation(e.target.value)} placeholder="例: 4-2-3-1" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1">アウェイ フォーメーション</label>
+            <input type="text" value={awayFormation} onChange={e => setAwayFormation(e.target.value)} placeholder="例: 4-4-2" className={inputCls} />
           </div>
         </div>
 

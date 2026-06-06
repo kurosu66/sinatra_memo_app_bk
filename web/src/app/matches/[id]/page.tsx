@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import FormationPitch from '@/components/FormationPitch';
 import type { Match, MatchPlayer } from '@/types';
 
 function ratingColor(r: number | null): string {
@@ -17,7 +18,7 @@ function PlayerRow({ mp }: { mp: MatchPlayer }) {
   const r = mp.rating != null ? Number(mp.rating) : null;
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
-      <div className="w-6 text-right text-muted text-sm">
+      <div className="w-6 text-right text-muted text-sm shrink-0">
         {mp.player.jersey_number ? `#${mp.player.jersey_number}` : ''}
       </div>
       <div className="flex-1 min-w-0">
@@ -29,7 +30,7 @@ function PlayerRow({ mp }: { mp: MatchPlayer }) {
         )}
       </div>
       {r != null && (
-        <div className={`font-bold text-lg tabular-nums ${ratingColor(r)}`}>
+        <div className={`font-bold text-lg tabular-nums shrink-0 ${ratingColor(r)}`}>
           {r.toFixed(1)}
         </div>
       )}
@@ -40,20 +41,20 @@ function PlayerRow({ mp }: { mp: MatchPlayer }) {
   );
 }
 
-function TeamSection({ title, colorClass, players }: { title: string; colorClass: string; players: MatchPlayer[] }) {
+function RatingSection({ title, colorClass, players }: { title: string; colorClass: string; players: MatchPlayer[] }) {
   const sorted = [...players].sort((a, b) => {
     const ra = a.rating != null ? Number(a.rating) : -1;
     const rb = b.rating != null ? Number(b.rating) : -1;
     return rb - ra;
   });
-
-  const avg = players.length > 0
-    ? players.reduce((s, p) => s + (p.rating != null ? Number(p.rating) : 0), 0) / players.length
+  const ratedPlayers = players.filter(p => p.rating != null);
+  const avg = ratedPlayers.length > 0
+    ? ratedPlayers.reduce((s, p) => s + Number(p.rating), 0) / ratedPlayers.length
     : null;
 
   return (
     <div className="flex-1 bg-card border border-white/10 rounded-xl overflow-hidden">
-      <div className={`px-4 py-3 border-b border-white/10 flex items-center justify-between`}>
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
         <h3 className={`font-bold ${colorClass}`}>{title}</h3>
         {avg != null && (
           <span className={`text-sm ${ratingColor(avg)}`}>平均 {avg.toFixed(1)}</span>
@@ -70,12 +71,15 @@ function TeamSection({ title, colorClass, players }: { title: string; colorClass
   );
 }
 
+type Tab = 'rating' | 'formation';
+
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState<Tab>('rating');
 
   useEffect(() => {
     api.matches.get(Number(id))
@@ -97,6 +101,7 @@ export default function MatchDetailPage() {
   const away = match.players.filter(p => p.team === 'away');
   const hw = match.home_score > match.away_score;
   const aw = match.away_score > match.home_score;
+  const hasFormation = home.length > 0 || away.length > 0;
 
   return (
     <div>
@@ -118,11 +123,13 @@ export default function MatchDetailPage() {
         </div>
       </div>
 
-      {/* Header */}
-      <div className="bg-card border border-white/10 rounded-xl p-6 mb-6">
+      {/* Match header */}
+      <div className="bg-card border border-white/10 rounded-xl p-6 mb-5">
         {(match.date || match.location) && (
           <div className="text-sm text-muted mb-3 text-center">
-            {match.date && new Date(match.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+            {match.date && new Date(match.date).toLocaleDateString('ja-JP', {
+              year: 'numeric', month: 'long', day: 'numeric',
+            })}
             {match.location && <span className="ml-3">📍 {match.location}</span>}
           </div>
         )}
@@ -131,6 +138,9 @@ export default function MatchDetailPage() {
             <div className={`text-xl font-bold ${hw ? 'text-home' : 'text-muted'}`}>
               {match.home_team || 'ホーム'}
             </div>
+            {match.home_formation && (
+              <div className="text-xs text-muted mt-0.5">{match.home_formation}</div>
+            )}
           </div>
           <div className="flex items-center gap-3 text-4xl font-bold">
             <span className={hw ? 'text-home' : 'text-white/60'}>{match.home_score}</span>
@@ -141,6 +151,9 @@ export default function MatchDetailPage() {
             <div className={`text-xl font-bold ${aw ? 'text-away' : 'text-muted'}`}>
               {match.away_team || 'アウェイ'}
             </div>
+            {match.away_formation && (
+              <div className="text-xs text-muted mt-0.5">{match.away_formation}</div>
+            )}
           </div>
         </div>
         {match.note && (
@@ -148,20 +161,66 @@ export default function MatchDetailPage() {
         )}
       </div>
 
-      {/* Players */}
-      {match.players.length > 0 && (
-        <div className="flex gap-4 flex-col sm:flex-row">
-          <TeamSection
-            title={match.home_team || 'ホーム'}
-            colorClass="text-home"
-            players={home}
-          />
-          <TeamSection
-            title={match.away_team || 'アウェイ'}
-            colorClass="text-away"
-            players={away}
-          />
-        </div>
+      {/* Tab switcher */}
+      {hasFormation && (
+        <>
+          <div className="flex gap-1 mb-4 bg-bg2 rounded-xl p-1 w-fit">
+            <button
+              onClick={() => setTab('rating')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'rating' ? 'bg-white/10 text-white' : 'text-muted hover:text-white'
+              }`}
+            >
+              選手評価
+            </button>
+            <button
+              onClick={() => setTab('formation')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'formation' ? 'bg-white/10 text-white' : 'text-muted hover:text-white'
+              }`}
+            >
+              フォーメーション
+            </button>
+          </div>
+
+          {tab === 'rating' && (
+            <div className="flex gap-4 flex-col sm:flex-row">
+              <RatingSection
+                title={match.home_team || 'ホーム'}
+                colorClass="text-home"
+                players={home}
+              />
+              <RatingSection
+                title={match.away_team || 'アウェイ'}
+                colorClass="text-away"
+                players={away}
+              />
+            </div>
+          )}
+
+          {tab === 'formation' && (
+            <div className="flex gap-4 flex-col sm:flex-row">
+              {home.length > 0 && (
+                <div className="flex-1">
+                  <FormationPitch
+                    players={home}
+                    formation={match.home_formation}
+                    teamName={match.home_team || 'ホーム'}
+                  />
+                </div>
+              )}
+              {away.length > 0 && (
+                <div className="flex-1">
+                  <FormationPitch
+                    players={away}
+                    formation={match.away_formation}
+                    teamName={match.away_team || 'アウェイ'}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

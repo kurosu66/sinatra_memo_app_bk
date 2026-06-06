@@ -37,7 +37,7 @@ module Api
     end
 
     def player_params
-      params.require(:player).permit(:name, :jersey_number, :position, :note)
+      params.require(:player).permit(:name, :jersey_number, :position, :photo_url, :note)
     end
   end
 end

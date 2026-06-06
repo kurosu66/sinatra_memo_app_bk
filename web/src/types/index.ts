@@ -5,6 +5,7 @@ export interface Player {
   name: string;
   jersey_number: string | null;
   position: Position | null;
+  photo_url: string | null;
   note: string | null;
 }
 
@@ -26,6 +27,8 @@ export interface Match {
   away_team: string;
   home_score: number;
   away_score: number;
+  home_formation: string | null;
+  away_formation: string | null;
   note: string | null;
   players: MatchPlayer[];
 }

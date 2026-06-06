@@ -41,7 +41,8 @@ module Api
 
     def match_params
       params.permit(:date, :location, :home_team, :away_team,
-                    :home_score, :away_score, :note)
+                    :home_score, :away_score, :note,
+                    :home_formation, :away_formation)
     end
 
     def sync_players(m)
