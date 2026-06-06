@@ -12,7 +12,8 @@ RUN bundle install
 
 COPY . .
 
-RUN mkdir -p db log tmp/pids tmp/cache tmp/sockets
+RUN chmod +x bin/rails bin/rake bin/bundle 2>/dev/null; \
+    mkdir -p db log tmp/pids tmp/cache tmp/sockets
 
 EXPOSE 3001
 
