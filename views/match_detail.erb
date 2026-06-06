@@ -44,8 +44,8 @@
 
   <!-- 選手評価 -->
   <% players = @match['players'] || [] %>
-  <% home_players = players.select { |p| p['team'] == 'home' }.sort_by { |p| -(p['rating'] || 0) } %>
-  <% away_players = players.select { |p| p['team'] == 'away' }.sort_by { |p| -(p['rating'] || 0) } %>
+  <% home_players = players.select { |p| p['team'] == 'home' }.sort_by { |p| -(p['rating'].to_f) } %>
+  <% away_players = players.select { |p| p['team'] == 'away' }.sort_by { |p| -(p['rating'].to_f) } %>
 
   <% if players.empty? %>
     <div class="empty-state" style="margin-top:32px">
@@ -71,7 +71,7 @@
                       <span class="player-name"><%= player['name'] || 'Unknown' %></span>
                     </div>
                   </div>
-                  <% rating = player['rating']&.to_f || 0 %>
+                  <% rating = player['rating'].to_f %>
                   <div class="rating-block">
                     <div class="rating-number" style="color:<%= rating_color(rating) %>"><%= rating > 0 ? sprintf('%.1f', rating) : '-' %></div>
                     <div class="rating-label"><%= rating_label(rating) %></div>
