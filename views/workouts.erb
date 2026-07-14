@@ -1,0 +1,65 @@
+<h1>ワークアウト</h1>
+
+<section class="suggestion-card">
+  <h2><%= @suggestion[:headline] %></h2>
+  <p class="suggestion-main">
+    <strong><%= @suggestion[:workout_type] %></strong>
+    ・<%= @suggestion[:duration_minutes] %>分
+    ・強度: <%= @suggestion[:intensity] %>
+  </p>
+  <p class="suggestion-reason"><%= @suggestion[:reason] %></p>
+</section>
+
+<section class="import-info">
+  <h3>Apple Health との連携</h3>
+  <p>
+    「Health Auto Export」などのショートカット経由で、以下のエンドポイントに
+    ワークアウトのエクスポートJSONをPOSTすると自動的に取り込まれます。
+  </p>
+  <code>POST /api/workouts/import</code>
+</section>
+
+<% if @errors %>
+  <ul class="errors">
+    <% @errors.each do |e| %><li><%= e %></li><% end %>
+  </ul>
+<% end %>
+
+<h3>手動で記録</h3>
+<form action="/workouts" method="post" class="workout-form">
+  <label>種目
+    <select name="workout_type">
+      <% WorkoutSuggester::DEFAULT_TYPES.each do |t| %>
+        <option value="<%= t %>"><%= t %></option>
+      <% end %>
+    </select>
+  </label>
+  <label>実施日時<input type="datetime-local" name="performed_at" required></label>
+  <label>時間(分)<input type="number" name="duration_minutes" step="1"></label>
+  <label>消費カロリー<input type="number" name="calories" step="1"></label>
+  <label>平均心拍<input type="number" name="avg_heart_rate" step="1"></label>
+  <label>距離(km)<input type="number" name="distance_km" step="0.1"></label>
+  <button type="submit">記録する</button>
+</form>
+
+<h3>履歴</h3>
+<table class="workout-table">
+  <thead>
+    <tr>
+      <th>日時</th><th>種目</th><th>時間(分)</th><th>カロリー</th><th>心拍</th><th>距離(km)</th><th>取込元</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @workouts.each do |w| %>
+      <tr>
+        <td><%= format_time(w.performed_at) %></td>
+        <td><%= w.workout_type %></td>
+        <td><%= w.duration_minutes&.round %></td>
+        <td><%= w.calories&.round %></td>
+        <td><%= w.avg_heart_rate&.round %></td>
+        <td><%= w.distance_km %></td>
+        <td><%= w.source %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

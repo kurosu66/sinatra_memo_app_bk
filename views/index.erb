@@ -1,0 +1,16 @@
+<h1>メモ一覧</h1>
+
+<a href="/memos/new">+ 新規メモ</a>
+
+<ul class="memo-list">
+  <% @memos.each do |memo| %>
+    <li class="memo-item">
+      <strong><%= memo.title %></strong>
+      <p><%= memo.body %></p>
+      <small><%= format_time(memo.created_at) %></small>
+      <form action="/memos/<%= memo.id %>/delete" method="post">
+        <button type="submit">削除</button>
+      </form>
+    </li>
+  <% end %>
+</ul>

@@ -1,0 +1,50 @@
+body {
+  font-family: -apple-system, "Hiragino Sans", sans-serif;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  color: #222;
+}
+
+.nav a {
+  margin-right: 1rem;
+  font-weight: bold;
+  text-decoration: none;
+  color: #0a7d4b;
+}
+
+.memo-item, .workout-form, .suggestion-card, .import-info {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.suggestion-card {
+  background: #f0faf5;
+  border-color: #0a7d4b;
+}
+
+.suggestion-main {
+  font-size: 1.2rem;
+}
+
+.workout-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.workout-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.workout-table th, .workout-table td {
+  border-bottom: 1px solid #eee;
+  padding: 0.4rem;
+  text-align: left;
+}
+
+.errors {
+  color: #b00020;
+}
